@@ -4,6 +4,6 @@ tmgmt.translator.settings.client:
     auto_accept:
       type: boolean
       label: Automatically accept
-    url:
+    remote_url:
       type: string
       label: Remote URL of the provider.

@@ -1,4 +1,4 @@
-name: 'Provider Translator'
+name: 'TMGMT Client Translator'
 description: Translator plugin connecting to Provider
 core: 8.x
 package: Translation Management Client
