@@ -1,7 +1,7 @@
 <?php
 /**
  * @file
- * Contains \Drupal\tmgmt_microsoft\ClientTranslatorUi.
+ * Contains \Drupal\tmgmt_client\ClientTranslatorUi.
  */
 
 namespace Drupal\tmgmt_client;
