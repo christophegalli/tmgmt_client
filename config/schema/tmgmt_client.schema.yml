@@ -1,0 +1,9 @@
+tmgmt.translator.settings.client:
+  type: mapping
+  mapping:
+    auto_accept:
+      type: boolean
+      label: Automatically accept
+    url:
+      type: string
+      label: Remote URL of the provider.
