@@ -38,19 +38,6 @@ use \Drupal\tmgmt\Translator\TranslatableResult;
  */
 class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryPluginInterface, ContinuousTranslatorInterface {
 
-  /**
-   * Name of parameter that contains source string to be translated.
-   *
-   * @var string
-   */
-  protected $qParamName = 'q';
-
-  /**
-   * Maximum supported characters.
-   *
-   * @var int
-   */
-  protected $maxCharacters = 5000;
 
   /**
    * Available actions for Client translator.
@@ -58,13 +45,6 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    * @var array
    */
   protected $availableActions = array('translate', 'languages', 'detect');
-
-  /**
-   * Max number of text queries for translation sent in one request.
-   *
-   * @var int
-   */
-  protected $qChunkSize = 5;
 
   /**
    * Guzzle HTTP client.
@@ -127,34 +107,16 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    * Implements TMGMTTranslatorPluginControllerInterface::requestTranslation().
    */
   public function requestTranslation(JobInterface $job) {
-    $this->requestJobItemsTranslation($job->getItems());
+    $data = \Drupal::service('tmgmt.data')->flatten($job->getData());
+    $this->doRequest($job->getTranslator(),'translate', array(
+      'from' => $job->getRemoteSourceLanguage(),
+      'to' => $job->getRemoteTargetLanguage(),
+      'data' => $data,
+    ));
+    
     if (!$job->isRejected()) {
       $job->submitted('The translation job has been submitted.');
     }
-  }
-
-  /**
-   * Helper method to do translation request.
-   *
-   * @param Job $job
-   *   TMGMT Job to be used for translation.
-   * @param array|string $q
-   *   Text/texts to be translated.
-   *
-   * @return array
-   *   Userialized JSON containing translated texts.
-   */
-  protected function googleRequestTranslation(Job $job, $q) {
-    $translator = $job->getTranslator();
-    return $this->doRequest($translator, 'translate', array(
-      'source' => $job->getRemoteSourceLanguage(),
-      'target' => $job->getRemoteTargetLanguage(),
-      $this->qParamName => $q,
-    ), array(
-      'headers' => array(
-        'Content-Type' => 'text/plain',
-      ),
-    ));
   }
 
 
@@ -236,15 +198,27 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    */
   protected function doRequest(Translator $translator, $action, array $request_query = array(), array $options = array()) {
     // @TODO: send the job to the remote_url
-    $a=3;
-    
-    // @todo add support to forward XDEBUG_SESSION
+
+    $url = $translator->getSetting('remote_url');
+    $params = $request_query;
     if (isset($_GET['XDEBUG_SESSION'])) {
       // Add $_GET['XDEBUG_SESSION'] to guzzle request.
+      $headers['XDEBUG_SESSION'] = 'PHPSTORM';
     }
     if (isset($_COOKIE['XDEBUG_SESSION'])) {
       // Add $_COOKIE['XDEBUG_SESSION'] to guzzle request.
+      $headers['XDEBUG_SESSION'] = 'PHPSTORM';
     }
+
+    if(isset($headers)) {
+      $params['headers'] = $headers;
+    }
+
+    $response = $this->client->request('POST', $url, ['form_params' => $params]);
+
+
+
+    // @todo add support to forward XDEBUG_SESSION
     
   }
 
@@ -272,27 +246,20 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
       $data = \Drupal::service('tmgmt.data')
         ->filterTranslatable($job_item->getData());
 
-      $translation = array();
-      $q = array();
-      $keys_sequence = array();
-      $i = 0;
-      foreach ($data as $key => $value) {
         try {
           // @todo: call doRequest
           $result = $this->doRequest($job->getTranslator(), 'Translate', array(
-            'from' => $job->getRemoteSourceLanguage(),
-            'to' => $job->getRemoteTargetLanguage(),
-            'contentType' => 'text/plain',
-            'text' => $value['#text'],
-          ), array(
-            'Content-Type' => 'text/plain',
-          ));
+              'from' => $job->getRemoteSourceLanguage(),
+              'to' => $job->getRemoteTargetLanguage(),
+              'data' => $data,
+            ));
+
         } catch (TMGMTException $e) {
           $job->rejected('Translation has been rejected with following error: @error',
             array('@error' => $e->getMessage()), 'error');
         }
       }
     }
-  }
+  
 
 }
