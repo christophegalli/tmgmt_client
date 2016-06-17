@@ -200,22 +200,25 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
     // @TODO: send the job to the remote_url
 
     $url = $translator->getSetting('remote_url');
-    $params = $request_query;
+    $options['form_params'] = $request_query;
     if (isset($_GET['XDEBUG_SESSION'])) {
       // Add $_GET['XDEBUG_SESSION'] to guzzle request.
       $headers['XDEBUG_SESSION'] = 'PHPSTORM';
     }
     if (isset($_COOKIE['XDEBUG_SESSION'])) {
       // Add $_COOKIE['XDEBUG_SESSION'] to guzzle request.
-      $headers['XDEBUG_SESSION'] = 'PHPSTORM';
+//      $options['cookies'] = ['XDEBUG_SESSION' => 'PHPSTORM'];
+//      $headers['XDEBUG_SESSION'] = 'PHPSTORM';
     }
 
     if(isset($headers)) {
-      $params['headers'] = $headers;
+      $options['headers'] = $headers;
     }
 
-    $response = $this->client->request('POST', $url, ['form_params' => $params]);
 
+    $response = $this->client->request('POST', $url, $options);
+
+    $data = $response->getBody()->getContents();
 
 
     // @todo add support to forward XDEBUG_SESSION
