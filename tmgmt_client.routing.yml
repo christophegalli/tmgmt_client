@@ -1,0 +1,8 @@
+
+tmgmt_client.tmgmt_client_request_test:
+  path: 'requestTest'
+  defaults:
+    _controller: '\Drupal\tmgmt_client\Controller\TMGMTClientController::requestTest'
+    _title: 'requestTest'
+  requirements:
+    _permission: 'access content'
