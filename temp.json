@@ -1,0 +1,149 @@
+{
+  "data": {
+    "51": {
+      "title": [
+        {
+          "value": {
+            "#text": "server test",
+            "#translate": "1",
+            "#max_length": "255",
+            "#status": "0",
+            "#parent_label": [
+              "server test"
+            ]
+          }
+        }
+      ],
+      "uid": [
+        {
+          "target_id": {
+            "#text": "1",
+            "#translate": "0",
+            "#parent_label": [
+              "server test"
+            ]
+          }
+        }
+      ],
+      "created": [
+        {
+          "value": {
+            "#text": "1466148891",
+            "#translate": "0",
+            "#parent_label": [
+              "server test"
+            ]
+          }
+        }
+      ],
+      "body": [
+        {
+          "value": {
+            "#text": "\u003Cp\u003Emain body\u003C\/p\u003E\r\n",
+            "#translate": "1",
+            "#format": "basic_html",
+            "#status": "0",
+            "#parent_label": [
+              "server test",
+              "Body"
+            ]
+          },
+          "format": {
+            "#text": "basic_html",
+            "#translate": "0",
+            "#parent_label": [
+              "server test",
+              "Body"
+            ]
+          }
+        }
+      ],
+      "field_zusatz": [
+        {
+          "value": {
+            "#text": "\u003Cp\u003Eadditional one\u003C\/p\u003E\r\n",
+            "#translate": "1",
+            "#format": "basic_html",
+            "#status": "0",
+            "#parent_label": [
+              "server test",
+              "Zusatz"
+            ]
+          },
+          "format": {
+            "#text": "basic_html",
+            "#translate": "0",
+            "#parent_label": [
+              "server test",
+              "Zusatz"
+            ]
+          }
+        },
+        {
+          "value": {
+            "#text": "\u003Cp\u003Eadditional two\u003C\/p\u003E\r\n",
+            "#translate": "1",
+            "#format": "basic_html",
+            "#status": "0",
+            "#parent_label": [
+              "server test",
+              "Zusatz"
+            ]
+          },
+          "format": {
+            "#text": "basic_html",
+            "#translate": "0",
+            "#parent_label": [
+              "server test",
+              "Zusatz"
+            ]
+          }
+        }
+      ],
+      "changed": [
+        {
+          "value": {
+            "#text": "1466148932",
+            "#translate": "0",
+            "#parent_label": [
+              "server test"
+            ]
+          }
+        }
+      ],
+      "default_langcode": [
+        {
+          "value": {
+            "#text": "1",
+            "#translate": "0",
+            "#parent_label": [
+              "server test"
+            ]
+          }
+        }
+      ],
+      "revision_translation_affected": [
+        {
+          "value": {
+            "#text": "1",
+            "#translate": "0",
+            "#parent_label": [
+              "server test"
+            ]
+          }
+        }
+      ],
+      "status": [
+        {
+          "value": {
+            "#text": "1",
+            "#translate": "0",
+            "#parent_label": [
+              "server test"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

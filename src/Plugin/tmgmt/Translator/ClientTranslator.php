@@ -107,11 +107,10 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    * Implements TMGMTTranslatorPluginControllerInterface::requestTranslation().
    */
   public function requestTranslation(JobInterface $job) {
-    $data = \Drupal::service('tmgmt.data')->flatten($job->getData());
     $this->doRequest($job->getTranslator(),'translate', array(
       'from' => $job->getRemoteSourceLanguage(),
       'to' => $job->getRemoteTargetLanguage(),
-      'data' => $data,
+      'data' => $job->getData(),
     ));
     
     if (!$job->isRejected()) {
@@ -207,7 +206,7 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
     }
     if (isset($_COOKIE['XDEBUG_SESSION'])) {
       // Add $_COOKIE['XDEBUG_SESSION'] to guzzle request.
-//      $options['cookies'] = ['XDEBUG_SESSION' => 'PHPSTORM'];
+      $options['Cookie'] = ['XDEBUG_SESSION' => 'PHPSTORM'];
 //      $headers['XDEBUG_SESSION'] = 'PHPSTORM';
     }
 
@@ -263,6 +262,6 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
         }
       }
     }
-  
+
 
 }

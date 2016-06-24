@@ -3,6 +3,7 @@
 namespace Drupal\tmgmt_client\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
+use GuzzleHttp;
 
 /**
  * Class TMGMTClientController.
@@ -19,7 +20,12 @@ class TMGMTClientController extends ControllerBase {
    */
   public function requestTest() {
 
-    $url = $translator->getSetting('remote_url');
+    $request_query['from'] = 'de';
+    $request_query['to'] = 'en';
+    $request_query['data'] = 'das ist data test';
+    
+    
+    $url = 'http://localdev64/tmgmt/remote_translation/add';
     $options['form_params'] = $request_query;
     if (isset($_GET['XDEBUG_SESSION'])) {
       // Add $_GET['XDEBUG_SESSION'] to guzzle request.
@@ -27,18 +33,19 @@ class TMGMTClientController extends ControllerBase {
     }
     if (isset($_COOKIE['XDEBUG_SESSION'])) {
       // Add $_COOKIE['XDEBUG_SESSION'] to guzzle request.
-//      $options['cookies'] = ['XDEBUG_SESSION' => 'PHPSTORM'];
-//      $headers['XDEBUG_SESSION'] = 'PHPSTORM';
+      $headers['Cookie'] = ['XDEBUG_SESSION=PHPSTORM'];
+      $headers['XDEBUG_SESSION'] = 'PHPSTORM';
     }
 
     if(isset($headers)) {
       $options['headers'] = $headers;
     }
 
-
+$this->client = new GuzzleHttp\Client();
     $response = $this->client->request('POST', $url, $options);
 
     $data = $response->getBody()->getContents();
+
 
 
     return [
