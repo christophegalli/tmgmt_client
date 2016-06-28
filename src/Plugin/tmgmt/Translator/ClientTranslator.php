@@ -12,6 +12,7 @@ use Drupal\Component\Utility\Unicode;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\tmgmt\ContinuousTranslatorInterface;
 use Drupal\tmgmt\Entity\Job;
+use Drupal\tmgmt\Entity\JobItem;
 use Drupal\tmgmt\JobInterface;
 use Drupal\tmgmt\JobItemInterface;
 use Drupal\tmgmt\TranslatorInterface;
@@ -25,6 +26,7 @@ use GuzzleHttp\Psr7\Request;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use \Drupal\tmgmt\Translator\AvailableResult;
 use \Drupal\tmgmt\Translator\TranslatableResult;
+use Drupal\Component\Serialization\Json;
 
 /**
  * Client translator plugin.
@@ -103,15 +105,38 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
     return parent::checkTranslatable($translator, $job);
   }
 
+  public function prepareJob(JobInterface $job) {
+    /** @var JobItem $job_item */
+    $transferData = [];
+
+    $transferData = array (
+      'tjid' => $job->id(),
+      'label' => $job->label(),
+      'from' => $job->getSourceLangcode(),
+      'to' => $job->getTargetLangcode(),
+    );
+
+    foreach($job->getItems() as $key => $job_item) {
+      $transferData['items'][$key] = array(
+        'tjiid' => $job_item->id(),
+        'item_id' => $job_item->getItemId(),
+        'item_type' => $job_item->getItemType(),
+        'plugin'  => $job_item->getPlugin(),
+        'data' => $job_item->getData(),
+      );
+    }
+
+    return $transferData;
+  }
+
   /**
    * Implements TMGMTTranslatorPluginControllerInterface::requestTranslation().
    */
   public function requestTranslation(JobInterface $job) {
-    $this->doRequest($job->getTranslator(),'translate', array(
-      'from' => $job->getRemoteSourceLanguage(),
-      'to' => $job->getRemoteTargetLanguage(),
-      'data' => $job->getData(),
-    ));
+
+    $transferData = $this->prepareJob($job);
+
+    $this->doRequest($job->getTranslator(),'translate', $transferData);
     
     if (!$job->isRejected()) {
       $job->submitted('The translation job has been submitted.');
@@ -176,7 +201,7 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
   }
 
   /**
-   * Local method to do request to Google Translate service.
+   * Local method to do request to TMGMT Server.
    *
    * @param Translator $translator
    *   The translator entity to get the settings from.
@@ -188,18 +213,18 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    *   (Optional) Additional options that will be passed into drupal_http_request().
    *
    * @return array object
-   *   Unserialized JSON response from Google.
+   *   Unserialized JSON response from Server.
    *
    * @throws TMGMTException
    *   - Invalid action provided
    *   - Unable to connect to the Google Service
    *   - Error returned by the Google Service
    */
-  protected function doRequest(Translator $translator, $action, array $request_query = array(), array $options = array()) {
+  protected function doRequest(Translator $translator, $action, array $transfer_data) {
     // @TODO: send the job to the remote_url
 
     $url = $translator->getSetting('remote_url');
-    $options['form_params'] = $request_query;
+    $options['form_params'] = $transfer_data;
     if (isset($_GET['XDEBUG_SESSION'])) {
       // Add $_GET['XDEBUG_SESSION'] to guzzle request.
       $headers['XDEBUG_SESSION'] = 'PHPSTORM';
@@ -218,7 +243,7 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
     $response = $this->client->request('POST', $url, $options);
 
     $data = $response->getBody()->getContents();
-
+    $temp = Json::decode($data);
 
     // @todo add support to forward XDEBUG_SESSION
     
@@ -239,28 +264,6 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    */
   public function requestJobItemsTranslation(array $job_items) {
     /** @var \Drupal\tmgmt\Entity\Job $job */
-    $job = reset($job_items)->getJob();
-    foreach ($job_items as $job_item) {
-      if ($job->isContinuous()) {
-        $job_item->active();
-      }
-      // Pull the source data array through the job and flatten it.
-      $data = \Drupal::service('tmgmt.data')
-        ->filterTranslatable($job_item->getData());
-
-        try {
-          // @todo: call doRequest
-          $result = $this->doRequest($job->getTranslator(), 'Translate', array(
-              'from' => $job->getRemoteSourceLanguage(),
-              'to' => $job->getRemoteTargetLanguage(),
-              'data' => $data,
-            ));
-
-        } catch (TMGMTException $e) {
-          $job->rejected('Translation has been rejected with following error: @error',
-            array('@error' => $e->getMessage()), 'error');
-        }
-      }
     }
 
 
