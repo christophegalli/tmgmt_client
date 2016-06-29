@@ -239,7 +239,7 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
       $options['headers'] = $headers;
     }
 
-
+    $JSon_array = Json::encode($options['form_params']);
     $response = $this->client->request('POST', $url, $options);
 
     $data = $response->getBody()->getContents();
