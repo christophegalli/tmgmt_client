@@ -7,10 +7,12 @@
 
 namespace Drupal\tmgmt_client\Plugin\tmgmt\Translator;
 
+use Behat\Mink\Exception\Exception;
 use Drupal\Component\Utility\Html;
 use Drupal\Component\Utility\Unicode;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\tmgmt\ContinuousTranslatorInterface;
+use Drupal\tmgmt\Data;
 use Drupal\tmgmt\Entity\Job;
 use Drupal\tmgmt\Entity\JobItem;
 use Drupal\tmgmt\JobInterface;
@@ -105,39 +107,57 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
     return parent::checkTranslatable($translator, $job);
   }
 
-  public function prepareJob(JobInterface $job) {
-    /** @var JobItem $job_item */
-    $transferData = [];
-
-    $transferData = array (
-      'tjid' => $job->id(),
-      'label' => $job->label(),
-      'from' => $job->getSourceLangcode(),
-      'to' => $job->getTargetLangcode(),
-    );
-
-    foreach($job->getItems() as $key => $job_item) {
-      $transferData['items'][$key] = array(
-        'tjiid' => $job_item->id(),
-        'item_id' => $job_item->getItemId(),
-        'item_type' => $job_item->getItemType(),
-        'plugin'  => $job_item->getPlugin(),
-        'data' => $job_item->getData(),
-      );
-    }
-
-    return $transferData;
+  /**
+   * Retrieve the callback url for a job item.
+   */
+  public function getCallbackUrl(JobItemInterface $item) {
+    return \Drupal\Core\Url::fromRoute('tmgmt_client.callback',array(
+      'job_item_id' => $item->id(),
+    ) )->toString();
   }
 
   /**
+   * Retrieves the filtered and structured data array for a single job item in
+   * a translation request array.
+   *
+   * @param $item
+   *   The job item to retrieve the structured data array for.
+   *
+   * @return array
+   *   The structured data array for the passed job item.
+   */
+  public function getTranslationRequestItemArray(JobItemInterface $item) {
+
+    $filtered_and_flatten_item = \Drupal::service('tmgmt.data')
+      ->filterTranslatable($item->getData());
+    $data = array(
+      'data' =>  \Drupal::service('tmgmt.data')->unflatten($filtered_and_flatten_item),
+      'label' => $item->getSourceLabel(),
+      'callback' => $this->getCallbackUrl($item),
+    );
+    return $data;
+  }
+
+
+    /**
    * Implements TMGMTTranslatorPluginControllerInterface::requestTranslation().
    */
   public function requestTranslation(JobInterface $job) {
 
-    $transferData = $this->prepareJob($job);
+    $items = [];
+    foreach ($job->getItems() as $item) {
+      $items[$item->id()] = $this->getTranslationRequestItemArray($item);
+    }
+
+    $transferData = array(
+      'from' => $job->getSourceLangcode(),
+      'to' => $job->getTargetLangcode(),
+      'items' => $items,
+      'comment' => $job->getSetting('job_comment'),
+    );
 
     $this->doRequest($job->getTranslator(),'translate', $transferData);
-    
+
     if (!$job->isRejected()) {
       $job->submitted('The translation job has been submitted.');
     }
@@ -221,25 +241,15 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    *   - Error returned by the Google Service
    */
   protected function doRequest(Translator $translator, $action, array $transfer_data) {
-    // @TODO: send the job to the remote_url
 
     $url = $translator->getSetting('remote_url');
+    
+    $url .= '/translation-job';
+
     $options['form_params'] = $transfer_data;
-    if (isset($_GET['XDEBUG_SESSION'])) {
-      // Add $_GET['XDEBUG_SESSION'] to guzzle request.
-      $headers['XDEBUG_SESSION'] = 'PHPSTORM';
-    }
-    if (isset($_COOKIE['XDEBUG_SESSION'])) {
-      // Add $_COOKIE['XDEBUG_SESSION'] to guzzle request.
-      $options['Cookie'] = ['XDEBUG_SESSION' => 'PHPSTORM'];
-//      $headers['XDEBUG_SESSION'] = 'PHPSTORM';
-    }
+    $options['Cookies'] = 'XDEBUG_SESSION=PHPSTORM';
+    $temp = Json::encode($transfer_data);
 
-    if(isset($headers)) {
-      $options['headers'] = $headers;
-    }
-
-    $JSon_array = Json::encode($options['form_params']);
     $response = $this->client->request('POST', $url, $options);
 
     $data = $response->getBody()->getContents();

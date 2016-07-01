@@ -1,5 +1,12 @@
 
-tmgmt_client.tmgmt_client_request_test:
+tmgmt_client.callback:
+  path: 'tmgmt-drupal-callback/{job_item_id}'
+  defaults:
+    _controller: '\Drupal\tmgmt_client\Controller\TMGMTClientController::clientCallback'
+    _title: 'Client Callback'
+  requirements:
+    _permission: 'access content'
+tmgmt_client.requestTest:
   path: 'requestTest'
   defaults:
     _controller: '\Drupal\tmgmt_client\Controller\TMGMTClientController::requestTest'
