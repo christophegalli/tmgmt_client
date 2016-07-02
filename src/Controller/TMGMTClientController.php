@@ -37,17 +37,27 @@ class TMGMTClientController extends ControllerBase {
     }
     if (isset($_COOKIE['XDEBUG_SESSION'])) {
       // Add $_COOKIE['XDEBUG_SESSION'] to guzzle request.
-      $headers['Cookie'] = ['XDEBUG_SESSION=PHPSTORM'];
+     // $headers['Cookie'] = ['XDEBUG_SESSION=PHPSTORM'];
     }
 
     if(isset($headers)) {
       $options['headers'] = $headers;
     }
 
-    $jar = new \GuzzleHttp\Cookie\CookieJar();;
-    $jar->fromArray(['XDEBUG_SESSION' => 'PHPSTORM'],$url);
-   $client = new GuzzleHttp\Client();
-    $options['cookies'] = $jar;
+    $cookie = new \GuzzleHttp\Cookie\SetCookie();
+    $cookie->setName('XDEBUG_SESSION');
+    $cookie->setValue('PHPSTORM');
+    $cookie->setDomain('http://localdev64/tmgmt');
+
+    $jar = new \GuzzleHttp\Cookie\CookieJar();
+    $jar->setCookie($cookie);
+
+    $client = new GuzzleHttp\Client([
+     'cookies' => $jar,
+   ]);
+
+
+
     $response = $client->request('POST', $url, $options);
 
     $data = $response->getBody()->getContents();
