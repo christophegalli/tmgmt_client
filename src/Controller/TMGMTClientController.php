@@ -31,23 +31,12 @@ class TMGMTClientController extends ControllerBase {
     $request_query = $array_data;
     $options['form_params'] = $request_query;
 
-    if (isset($_GET['XDEBUG_SESSION'])) {
-      // Add $_GET['XDEBUG_SESSION'] to guzzle request.
-      $headers['XDEBUG_SESSION'] = 'PHPSTORM';
-    }
-    if (isset($_COOKIE['XDEBUG_SESSION'])) {
-      // Add $_COOKIE['XDEBUG_SESSION'] to guzzle request.
-     // $headers['Cookie'] = ['XDEBUG_SESSION=PHPSTORM'];
-    }
-
-    if(isset($headers)) {
-      $options['headers'] = $headers;
-    }
 
     $cookie = new \GuzzleHttp\Cookie\SetCookie();
     $cookie->setName('XDEBUG_SESSION');
     $cookie->setValue('PHPSTORM');
-    $cookie->setDomain('http://localdev64/tmgmt');
+    $cookie->setDomain('http://localdev64/');
+    $cookie->setPath('tmgmt');
 
     $jar = new \GuzzleHttp\Cookie\CookieJar();
     $jar->setCookie($cookie);
@@ -57,8 +46,8 @@ class TMGMTClientController extends ControllerBase {
    ]);
 
 
-
-    $response = $client->request('POST', $url, $options);
+    $options['headers'] = array('Cookie' => 'XDEBUG_SESSION=PHPSTORM');
+    $response = $client->request('POST', $url .'?XDEBUG_SESSION_START=PHPSTORM', $options);
 
     $data = $response->getBody()->getContents();
 
