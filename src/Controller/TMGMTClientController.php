@@ -42,18 +42,19 @@ class TMGMTClientController extends ControllerBase {
     $jar->setCookie($cookie);
 
     $client = new GuzzleHttp\Client([
-     'cookies' => $jar,
+    // 'cookies' => $jar,
    ]);
 
 
-    $options['headers'] = array('Cookie' => 'XDEBUG_SESSION=PHPSTORM');
-    $response = $client->request('POST', $url .'?XDEBUG_SESSION_START=PHPSTORM', $options);
+    $options['headers'] = array('Cookie' => 'SESS74c63ff78586bfb2e7a85089ded4cc77=RHzTQBsXeW5gD5XBAZ0mptFxgXdW3vLr05hrY1_ck3o; _ga=GA1.1.1593936461.1467706918; SESSfc05598803a32af6205a07a5c1d40307=cmH6QlyL12RXkDMDyXp_RUEvBTiAIo_To34ltF6yDYo; SESS2f220b4e0ebd1e20d71ead763bfa7ba5=0_nVsBJXadJgJlvj1D7BPJCzag8W7STSviAHhrLbmsQ; XDEBUG_SESSION=PHPSTORM');
+    //
+    $response = $client->request('POST', $url, $options);
 
     $data = $response->getBody()->getContents();
 
     $array_result = Json::decode($data);
 
-
+   
 
     return [
       '#type' => 'markup',
