@@ -247,8 +247,8 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
     $url .= '/translation-job';
 
     $options['form_params'] = $transfer_data;
-    $options['Cookies'] = 'XDEBUG_SESSION=PHPSTORM';
-    $temp = Json::encode($transfer_data);
+    $options['headers'] = ['Cookies' => 'XDEBUG_SESSION=PHPSTORM'];
+    //$temp = Json::encode($transfer_data);
 
     $response = $this->client->request('POST', $url, $options);
 
