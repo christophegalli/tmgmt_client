@@ -7,3 +7,8 @@ tmgmt.translator.settings.client:
     remote_url:
       type: string
       label: Remote URL of the provider.
+    job_comment:
+      type: string
+      label:  Comment to pass to the remote translator service
+
+

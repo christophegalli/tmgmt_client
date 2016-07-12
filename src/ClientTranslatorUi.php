@@ -7,12 +7,28 @@
 namespace Drupal\tmgmt_client;
 
 use Drupal\tmgmt\TranslatorPluginUiBase;
+use Drupal\tmgmt\JobInterface;
 use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Client translator UI.
  */
 class ClientTranslatorUi extends TranslatorPluginUiBase {
+
+  /**
+   * {@inheritdoc}
+   */
+  public function checkoutSettingsForm(array $form, FormStateInterface $form_state, JobInterface $job) {
+
+    $form['job_comment'] = array(
+      '#type' => 'textarea',
+      '#title' => t('Comment for the remote translation service'),
+      '#description' => t('You can provide a comment so that the assigned user will better understand your requirements.'),
+      '#default_value' => $job->getSetting('job_comment'),
+    );
+
+    return $form;
+  }
 
   /**
    * {@inheritdoc}
