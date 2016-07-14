@@ -10,6 +10,7 @@ namespace Drupal\tmgmt_client\Plugin\tmgmt\Translator;
 use Behat\Mink\Exception\Exception;
 use Drupal\Component\Utility\Html;
 use Drupal\Component\Utility\Unicode;
+use Drupal\Core\Url;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\tmgmt\ContinuousTranslatorInterface;
 use Drupal\tmgmt\Data;
@@ -90,15 +91,15 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    * Overrides TMGMTDefaultTranslatorPluginController::checkAvailable().
    */
   public function checkAvailable(TranslatorInterface $translator) {
-  if ($translator->getSetting('remote_url')) {
-    return AvailableResult::yes();
-  }
+    if ($translator->getSetting('remote_url')) {
+      return AvailableResult::yes();
+    }
 
-  return AvailableResult::no(t('@translator is not available.', [
-    '@translator' => $translator->label(),
-    ':configured' => $translator->url()
-  ]));
-}
+    return AvailableResult::no(t('@translator is not available.', [
+      '@translator' => $translator->label(),
+      ':configured' => $translator->url(),
+    ]));
+  }
 
   /**
    * Overrides TMGMTDefaultTranslatorPluginController::checkTranslatable().
@@ -111,9 +112,9 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    * Retrieve the callback url for a job item.
    */
   public function getCallbackUrl(JobItemInterface $item) {
-    return \Drupal\Core\Url::fromRoute('tmgmt_client.callback',array(
+    return Url::fromRoute('tmgmt_client.callback', array(
       'job_item_id' => $item->id(),
-    ) )->toString();
+    ))->toString();
   }
 
   /**
@@ -131,15 +132,14 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
     $filtered_and_flatten_item = \Drupal::service('tmgmt.data')
       ->filterTranslatable($item->getData());
     $data = array(
-      'data' =>  \Drupal::service('tmgmt.data')->unflatten($filtered_and_flatten_item),
+      'data' => \Drupal::service('tmgmt.data')->unflatten($filtered_and_flatten_item),
       'label' => $item->getSourceLabel(),
       'callback' => $this->getCallbackUrl($item),
     );
     return $data;
   }
 
-
-    /**
+  /**
    * Implements TMGMTTranslatorPluginControllerInterface::requestTranslation().
    */
   public function requestTranslation(JobInterface $job) {
@@ -150,19 +150,19 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
     }
 
     $transferData = array(
+      'label' => $job->label(),
       'from' => $job->getSourceLangcode(),
       'to' => $job->getTargetLangcode(),
       'items' => $items,
       'comment' => $job->getSetting('job_comment'),
     );
 
-    $this->doRequest($job->getTranslator(),'translate', $transferData);
+    $response = $this->doRequest($job->getTranslator(), 'translate', $transferData);
 
     if (!$job->isRejected()) {
       $job->submitted('The translation job has been submitted.');
     }
   }
-
 
   /**
    * Overrides TMGMTDefaultTranslatorPluginController::getSupportedRemoteLanguages().
@@ -182,19 +182,20 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    */
   public function getDefaultRemoteLanguagesMappings() {
     return array(
-      //'zh-hans' => 'zh-CHS',
-      //'zh-hant' => 'zh-CHT',
+      // 'zh-hans' => 'zh-CHS',
+      // 'zh-hant' => 'zh-CHT',
     );
   }
 
-
+  /**
+   * Overrides TMGMTDefaultTranslatorPluginController::getSupportedLanguagePairs().
+   */
   public function getSupportedLanguagePairs(TranslatorInterface $translator) {
     return parent::getSupportedLanguagePairs($translator);
     // @todo: get the pairs from remote.
   }
 
-
-    /**
+  /**
    * Overrides TMGMTDefaultTranslatorPluginController::getSupportedTargetLanguages().
    */
   public function getSupportedTargetLanguages(TranslatorInterface $translator, $source_language) {
@@ -226,7 +227,7 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    * @param Translator $translator
    *   The translator entity to get the settings from.
    * @param string $action
-   *   Action to be performed [translate, languages, detect]
+   *   Action to be performed [translate, languages, detect].
    * @param array $request_query
    *   (Optional) Additional query params to be passed into the request.
    * @param array $options
@@ -235,28 +236,33 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    * @return array object
    *   Unserialized JSON response from Server.
    *
-   * @throws TMGMTException
-   *   - Invalid action provided
-   *   - Unable to connect to the Google Service
-   *   - Error returned by the Google Service
+   * @throws TMGMTException.
+   *   - Invalid action provided.
+   *   - Unable to connect to the Google Service.
+   *   - Error returned by the Google Service.
    */
   protected function doRequest(Translator $translator, $action, array $transfer_data) {
 
     $url = $translator->getSetting('remote_url');
-    
     $url .= '/translation-job';
 
     $options['form_params'] = $transfer_data;
-    $options['headers'] = ['Cookies' => 'XDEBUG_SESSION=PHPSTORM'];
-    //$temp = Json::encode($transfer_data);
+
+    // Support for debug session, pass on the cookie.
+    if (isset($_COOKIE['XDEBUG_SESSION'])) {
+      $cookie = 'XDEBUG_SESSION=' . $_COOKIE['XDEBUG_SESSION'];
+      $options['headers'] = ['Cookie' => $cookie];
+    }
 
     $response = $this->client->request('POST', $url, $options);
 
-    $data = $response->getBody()->getContents();
-    $temp = Json::decode($data);
+    if ($response->getStatusCode() != 200) {
+      throw new TMGMTRemoteConnectionException('Unable to connect to the remote service due to following error: @error at @url',
+        array('@error' => $response->error, '@url' => $url));
+    }
 
-    // @todo add support to forward XDEBUG_SESSION
-    
+    $data = $response->getBody()->getContents();
+    return Json::decode($data);
   }
 
   /**
@@ -274,7 +280,6 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    */
   public function requestJobItemsTranslation(array $job_items) {
     /** @var \Drupal\tmgmt\Entity\Job $job */
-    }
-
+  }
 
 }
