@@ -1,6 +1,5 @@
-
 tmgmt_client.callback:
-  path: 'tmgmt-drupal-callback/{job_item_id}'
+  path: 'tmgmt-drupal-callback/{tmgmt_job_item}'
   defaults:
     _controller: '\Drupal\tmgmt_client\Controller\TMGMTClientController::clientCallback'
     _title: 'Client Callback'

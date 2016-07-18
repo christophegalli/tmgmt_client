@@ -6,6 +6,7 @@ use Drupal\Core\Controller\ControllerBase;
 use GuzzleHttp\Client;
 use Drupal\Component\Serialization\Json;
 use Drupal\tmgmt_server;
+use Drupal\tmgmt\Entity\JobItem;
 
 /**
  * Class TMGMTClientController.
@@ -15,7 +16,7 @@ use Drupal\tmgmt_server;
 class TMGMTClientController extends ControllerBase {
 
   /**
-   * Hello.
+   * Testing path for development.
    *
    * @return string
    *   Return Hello string.
@@ -45,7 +46,27 @@ class TMGMTClientController extends ControllerBase {
     ];
   }
 
-  public function clientCallback($job_item_id) {
-    return;
+  /**
+   * Callback form server when job item has been translated.
+   *
+   * @param \Drupal\tmgmt\Entity\JobItem $tmgmt_job_item
+   *   The job item to which the translation belongs.
+   */
+  public function clientCallback(JobItem $tmgmt_job_item) {
+
+    $url = $tmgmt_job_item->getTranslator()->getSetting('remote_url');
+    $url .= '/translation-job/' . $tmgmt_job_item->id() . '/item';
+
+    $client = new Client();
+    $options = [];
+
+    // Support for debug session, pass on the cookie.
+    if (isset($_COOKIE['XDEBUG_SESSION'])) {
+      $cookie = 'XDEBUG_SESSION=' . $_COOKIE['XDEBUG_SESSION'];
+      $options['headers'] = ['Cookie' => $cookie];
+    }
+
+    $response = $client->request('GET', $url, $options);
   }
+
 }

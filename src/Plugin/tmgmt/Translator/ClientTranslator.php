@@ -113,7 +113,7 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    */
   public function getCallbackUrl(JobItemInterface $item) {
     return Url::fromRoute('tmgmt_client.callback', array(
-      'job_item_id' => $item->id(),
+      'tmgmt_job_item' => $item->id(),
     ))->toString();
   }
 
