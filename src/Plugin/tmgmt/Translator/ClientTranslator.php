@@ -112,9 +112,8 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    * Retrieve the callback url for a job item.
    */
   public function getCallbackUrl(JobItemInterface $item) {
-    return Url::fromRoute('tmgmt_client.callback', array(
-      'tmgmt_job_item' => $item->id(),
-    ))->toString();
+    return Url::fromRoute('tmgmt_client.callback', array('tmgmt_job_item' => $item->id()),
+      array('absolute' => TRUE))->toString();
   }
 
   /**
