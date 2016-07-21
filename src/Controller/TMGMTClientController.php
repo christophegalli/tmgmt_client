@@ -52,9 +52,11 @@ class TMGMTClientController extends ControllerBase {
    * @param \Drupal\tmgmt\Entity\JobItem $tmgmt_job_item
    *   The job item to which the translation belongs.
    */
-  public function clientCallback(JobItem $tmgmt_job_item) {
+  public function clientCallback(Request $request, JobItem $tmgmt_job_item) {
 
+    $remote_item_id = $request['id'];
     $url = $tmgmt_job_item->getTranslator()->getSetting('remote_url');
+
     $url .= '/translation-job/' . $tmgmt_job_item->id() . '/item';
 
     $client = new Client();
