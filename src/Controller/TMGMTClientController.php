@@ -5,9 +5,9 @@ namespace Drupal\tmgmt_client\Controller;
 use Drupal\Core\Controller\ControllerBase;
 use GuzzleHttp\Client;
 use Drupal\Component\Serialization\Json;
-use Drupal\tmgmt_server;
 use Drupal\tmgmt\Entity\JobItem;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Class TMGMTClientController.
@@ -55,7 +55,7 @@ class TMGMTClientController extends ControllerBase {
    * @param array $data
    *   Translation data received from the server.
    */
-  public function processTranslatedData(JobItem $item, $data) {
+  public function processTranslatedData(JobItem $item, array $data) {
     $translation = array();
     foreach (\Drupal::service('tmgmt.data')->flatten($data) as $path => $value) {
       if (isset($value['#translation']['#text'])) {
@@ -68,11 +68,17 @@ class TMGMTClientController extends ControllerBase {
   /**
    * Callback form server when job item has been translated.
    *
+   * @param Request $request
+   *   Http request.
    * @param \Drupal\tmgmt\Entity\JobItem $tmgmt_job_item
    *   The job item to which the translation belongs.
+   *
+   * @return Response
+   *   Empty response with code 200.
    */
   public function clientCallback(Request $request, JobItem $tmgmt_job_item) {
-
+    /* @var int $remote_source_id */
+    /* @var array $data */
     $remote_source_id = $request->get('id');
     $url = $tmgmt_job_item->getTranslator()->getSetting('remote_url');
 
@@ -91,14 +97,17 @@ class TMGMTClientController extends ControllerBase {
       $response = $client->request('GET', $url, $options);
 
       if (!empty($response)) {
-        $this->processTranslatedData($tmgmt_job_item, $response);
+        $response_data = Json::decode($response->getBody()->getContents());
+        $data = $response_data['data'];
+        $this->processTranslatedData($tmgmt_job_item, $data);
         $tmgmt_job_item->addMessage('Translation pulled from remote server.');
       }
     }
     catch (Exception $e) {
-      $tmgmt_job_item->addMessage('Unable to pull translation from server: ' . $e->getMessage());
+      $tmgmt_job_item->addMessage('Unable to pull translation from server: ' .
+        $e->getMessage());
     }
-
+    return new Response();
   }
 
 }
