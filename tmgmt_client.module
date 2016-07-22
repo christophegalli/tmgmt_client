@@ -1,0 +1,32 @@
+<?php
+
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\tmgmt\Entity\RemoteMapping;
+use Drupal\tmgmt_client\ClientTranslator;
+use Drupal\tmgmt\Entity\JobItem;
+
+/**
+ * Submit callback to pull translations form Gengo.
+ */
+function _tmgmt_client_pull_submit($form, FormStateInterface $form_state) {
+  /**
+   * @var \Drupal\tmgmt\JobItemInterface $job
+   */
+  $job = $form_state->getFormObject()->getEntity();
+
+  /**
+   * @var \Drupal\tmgmt_client\Plugin\tmgmt\Translator\clientTranslator $translator
+   */
+
+  $translator = $job->getTranslator();
+
+  // Fetch everything for this job, this updates the mapping and saves
+  // translations if there are any
+  $translator->pullRemoteItems($job);
+
+  // Clear comments cache.
+  // @todo: Improve cache id to clear cache for this job item only?
+  \Drupal::cache('data')->delete('tmgmt_mygengo_comments_' . $job->id());
+
+  // drupal_set_message(t('All available translations from @server have been pulled.'), array('server' => $controller->));
+}

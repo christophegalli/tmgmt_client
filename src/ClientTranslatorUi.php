@@ -33,6 +33,24 @@ class ClientTranslatorUi extends TranslatorPluginUiBase {
   /**
    * {@inheritdoc}
    */
+  public function checkoutInfo(JobInterface $job) {
+    $form = array();
+
+    if ($job->isActive()) {
+      $form['actions']['pull'] = array(
+        '#type' => 'submit',
+        '#value' => t('Pull translations from remote server'),
+        '#submit' => array('_tmgmt_client_pull_submit'),
+        '#weight' => -10,
+      );
+    }
+
+    return $form;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function buildConfigurationForm(array $form, FormStateInterface $form_state) {
     $form = parent::buildConfigurationForm($form, $form_state);
 

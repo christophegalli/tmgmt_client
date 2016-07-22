@@ -7,14 +7,9 @@
 
 namespace Drupal\tmgmt_client\Plugin\tmgmt\Translator;
 
-use Behat\Mink\Exception\Exception;
-use Drupal\Component\Utility\Html;
-use Drupal\Component\Utility\Unicode;
 use Drupal\Core\Url;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\tmgmt\ContinuousTranslatorInterface;
-use Drupal\tmgmt\Data;
-use Drupal\tmgmt\Entity\Job;
 use Drupal\tmgmt\Entity\JobItem;
 use Drupal\tmgmt\JobInterface;
 use Drupal\tmgmt\JobItemInterface;
@@ -25,10 +20,8 @@ use Drupal\tmgmt\TranslatorPluginBase;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\BadResponseException;
 use GuzzleHttp;
-use GuzzleHttp\Psr7\Request;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use \Drupal\tmgmt\Translator\AvailableResult;
-use \Drupal\tmgmt\Translator\TranslatableResult;
 use Drupal\Component\Serialization\Json;
 
 /**
@@ -120,7 +113,7 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    * Retrieves the filtered and structured data array for a single job item in
    * a translation request array.
    *
-   * @param $item
+   * @param JobItemInterface $item
    *   The job item to retrieve the structured data array for.
    *
    * @return array
@@ -140,9 +133,13 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
 
   /**
    * Implements TMGMTTranslatorPluginControllerInterface::requestTranslation().
+   *
+   * @param JobInterface $job
+   *   The job to be translated.
    */
   public function requestTranslation(JobInterface $job) {
-
+    /** @var array $items */
+    /** @var JobItem $item */
     $items = [];
     foreach ($job->getItems() as $item) {
       $items[$item->id()] = $this->getTranslationRequestItemArray($item);
@@ -158,6 +155,12 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
 
     $response = $this->doRequest($job->getTranslator(), 'translate', $transferData);
 
+    foreach ($response['data']['remote_mapping'] as $client_key => $remote_key) {
+      $item = JobItem::load($client_key);
+      $item->addRemoteMapping(null,$remote_key);
+      $item->save();
+
+    }
     if (!$job->isRejected()) {
       $job->submitted('The translation job has been submitted.');
     }
@@ -227,17 +230,14 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    *   The translator entity to get the settings from.
    * @param string $action
    *   Action to be performed [translate, languages, detect].
-   * @param array $request_query
-   *   (Optional) Additional query params to be passed into the request.
-   * @param array $options
-   *   (Optional) Additional options that will be passed into drupal_http_request().
+   * @param array $transfer_data
+   *   Job and other Data to be sent to the server.
    *
    * @return array object
    *   Unserialized JSON response from Server.
    *
    * @throws TMGMTException.
    *   - Invalid action provided.
-   *   - Unable to connect to the Google Service.
    *   - Error returned by the Google Service.
    */
   protected function doRequest(Translator $translator, $action, array $transfer_data) {
@@ -279,6 +279,10 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    */
   public function requestJobItemsTranslation(array $job_items) {
     /** @var \Drupal\tmgmt\Entity\Job $job */
+  }
+
+  public function pullRemoteItems(Job $job) {
+    $a=3;
   }
 
 }
