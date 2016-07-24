@@ -10,6 +10,7 @@ namespace Drupal\tmgmt_client\Plugin\tmgmt\Translator;
 use Drupal\Core\Url;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\tmgmt\ContinuousTranslatorInterface;
+use Drupal\tmgmt\Entity\Job;
 use Drupal\tmgmt\Entity\JobItem;
 use Drupal\tmgmt\JobInterface;
 use Drupal\tmgmt\JobItemInterface;
@@ -281,8 +282,14 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
     /** @var \Drupal\tmgmt\Entity\Job $job */
   }
 
+  /**
+   * Pull all ready items from remote.
+   *
+   * @param \Drupal\tmgmt\Entity\Job $job
+   *   The job to pull.
+   */
   public function pullRemoteItems(Job $job) {
-    $a=3;
+    $a = 3;
   }
 
 }

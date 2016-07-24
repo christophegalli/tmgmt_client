@@ -2,7 +2,8 @@
 
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\tmgmt\Entity\RemoteMapping;
-use Drupal\tmgmt_client\ClientTranslator;
+use Drupal\tmgmt_client\Plugin\tmgmt\Translator\ClientTranslator;
+use Drupal\tmgmt\Entity\Job;
 use Drupal\tmgmt\Entity\JobItem;
 
 /**
@@ -10,18 +11,17 @@ use Drupal\tmgmt\Entity\JobItem;
  */
 function _tmgmt_client_pull_submit($form, FormStateInterface $form_state) {
   /**
-   * @var \Drupal\tmgmt\JobItemInterface $job
+   * @var Job $job
    */
   $job = $form_state->getFormObject()->getEntity();
 
   /**
-   * @var \Drupal\tmgmt_client\Plugin\tmgmt\Translator\clientTranslator $translator
+   * @var ClientTranslator $translator
    */
 
-  $translator = $job->getTranslator();
+  $translator = $job->getTranslator()->getPlugin();
 
-  // Fetch everything for this job, this updates the mapping and saves
-  // translations if there are any
+  // Fetch everything for this job.
   $translator->pullRemoteItems($job);
 
   // Clear comments cache.
