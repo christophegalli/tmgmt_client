@@ -47,23 +47,6 @@ class TMGMTClientController extends ControllerBase {
     ];
   }
 
-  /**
-   * Saves translated data in a job item.
-   *
-   * @param JobItem $item
-   *   Job Item to be filled.
-   * @param array $data
-   *   Translation data received from the server.
-   */
-  public function processTranslatedData(JobItem $item, array $data) {
-    $translation = array();
-    foreach (\Drupal::service('tmgmt.data')->flatten($data) as $path => $value) {
-      if (isset($value['#translation']['#text'])) {
-        $translation[$path]['#text'] = $value['#translation']['#text'];
-      }
-    }
-    $item->addTranslatedData(\Drupal::service('tmgmt.data')->unflatten($translation));
-  }
 
   /**
    * Callback form server when job item has been translated.
@@ -82,32 +65,12 @@ class TMGMTClientController extends ControllerBase {
     $remote_source_id = $request->get('id');
     $url = $tmgmt_job_item->getTranslator()->getSetting('remote_url');
 
-    $url .= '/translation-job/' . $remote_source_id . '/item';
+    $url .= '/translation-job/' . $remote_source_id . '/sssitem';
+    $result = $tmgmt_job_item->getTranslator()->getPlugin()
+      ->pullItemData($tmgmt_job_item, $url);
 
-    $client = new Client();
-    $options = [];
+    return new Response('', $result);
 
-    // Support for debug session, pass on the cookie.
-    if (isset($_COOKIE['XDEBUG_SESSION'])) {
-      $cookie = 'XDEBUG_SESSION=' . $_COOKIE['XDEBUG_SESSION'];
-      $options['headers'] = ['Cookie' => $cookie];
-    }
-
-    try {
-      $response = $client->request('GET', $url, $options);
-
-      if (!empty($response)) {
-        $response_data = Json::decode($response->getBody()->getContents());
-        $data = $response_data['data'];
-        $this->processTranslatedData($tmgmt_job_item, $data);
-        $tmgmt_job_item->addMessage('Translation pulled from remote server.');
-      }
-    }
-    catch (Exception $e) {
-      $tmgmt_job_item->addMessage('Unable to pull translation from server: ' .
-        $e->getMessage());
-    }
-    return new Response();
   }
 
 }

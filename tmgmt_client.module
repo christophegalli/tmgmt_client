@@ -19,14 +19,12 @@ function _tmgmt_client_pull_submit($form, FormStateInterface $form_state) {
    * @var ClientTranslator $translator
    */
 
-  $translator = $job->getTranslator()->getPlugin();
+  $controller = $job->getTranslator()->getPlugin();
 
   // Fetch everything for this job.
-  $translator->pullRemoteItems($job);
+  $controller->pullRemoteItems($job);
 
-  // Clear comments cache.
-  // @todo: Improve cache id to clear cache for this job item only?
-  \Drupal::cache('data')->delete('tmgmt_mygengo_comments_' . $job->id());
+
 
   // drupal_set_message(t('All available translations from @server have been pulled.'), array('server' => $controller->));
 }

@@ -19,8 +19,7 @@ use Drupal\tmgmt\Entity\Translator;
 use Drupal\tmgmt\TMGMTException;
 use Drupal\tmgmt\TranslatorPluginBase;
 use GuzzleHttp\ClientInterface;
-use GuzzleHttp\Exception\BadResponseException;
-use GuzzleHttp;
+use GuzzleHttp\Exception;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use \Drupal\tmgmt\Translator\AvailableResult;
 use Drupal\Component\Serialization\Json;
@@ -156,8 +155,8 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
 
     $response = $this->doRequest($job->getTranslator(), 'translate', $transferData);
 
-    foreach ($response['data']['remote_mapping'] as $client_key => $remote_key) {
-      $item = JobItem::load($client_key);
+    foreach ($response['data']['remote_mapping'] as $local_key => $remote_key) {
+      $item = JobItem::load($local_key);
       $item->addRemoteMapping(null,$remote_key);
       $item->save();
 
@@ -257,7 +256,7 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
     $response = $this->client->request('POST', $url, $options);
 
     if ($response->getStatusCode() != 200) {
-      throw new TMGMTRemoteConnectionException('Unable to connect to the remote service due to following error: @error at @url',
+      throw new \TMGMTException('Unable to connect to the remote service due to following error: @error at @url',
         array('@error' => $response->error, '@url' => $url));
     }
 
@@ -266,8 +265,9 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
   }
 
   /**
-   * We provide translatorUrl setter so that we can override its value
-   * in automated testing.
+   * We provide translatorUrl setter so that we can override its value.
+   *
+   * Done for automated testing.
    *
    * @param $translator_url
    */
@@ -283,13 +283,76 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
   }
 
   /**
+   * Saves translated data in a job item.
+   *
+   * @param JobItem $item
+   *   Job Item to be filled.
+   * @param array $data
+   *   Translation data received from the server.
+   */
+  public function processTranslatedData(JobItem $item, array $data) {
+    $translation = array();
+    foreach (\Drupal::service('tmgmt.data')->flatten($data) as $path => $value) {
+      if (isset($value['#translation']['#text'])) {
+        $translation[$path]['#text'] = $value['#translation']['#text'];
+      }
+    }
+    $item->addTranslatedData(\Drupal::service('tmgmt.data')->unflatten($translation));
+  }
+
+  /**
+   * Get data from remote and add it to the local item.
+   *
+   * @param \Drupal\tmgmt\Entity\JobItem $job_item
+   *    Job item for which to get data.
+   * @param string $url
+   *    Which callback to use.
+   *
+   * @return int|mixed
+   *    Http return code.
+   */
+  public function pullItemData(JobItem $job_item, $url) {
+
+    // Get data from remote and add it to the local item.
+    $options = [];
+
+    // Support for debug session, pass on the cookie.
+    if (isset($_COOKIE['XDEBUG_SESSION'])) {
+      $cookie = 'XDEBUG_SESSION=' . $_COOKIE['XDEBUG_SESSION'];
+      $options['headers'] = ['Cookie' => $cookie];
+    }
+
+    try {
+      $response = $this->client->request('GET', $url, $options);
+
+      if (!empty($response)) {
+        $response_data = Json::decode($response->getBody()->getContents());
+        $data = $response_data['data'];
+        $this->processTranslatedData($job_item, $data);
+        $job_item->addMessage('Translation pulled from remote server.');
+      }
+    }
+    catch (Exception $e) {
+      $job_item->addMessage('Unable to pull translation from server: ' .
+        $e->getMessage());
+      return $e->getCode();
+    }
+    return 200;
+  }
+
+  /**
    * Pull all ready items from remote.
    *
    * @param \Drupal\tmgmt\Entity\Job $job
    *   The job to pull.
    */
   public function pullRemoteItems(Job $job) {
-    $a = 3;
+    /** @var JobItem $job_item $url */
+    $url = $job->getTranslator()->getSetting('remote_url') . '/remote-item/';
+
+    foreach ($job->getItems() as $job_item) {
+      $this->pullItemData($job_item, $url . $job_item->id());
+    }
   }
 
 }
