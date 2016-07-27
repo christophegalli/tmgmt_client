@@ -329,7 +329,10 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
         $response_data = Json::decode($response->getBody()->getContents());
         $data = $response_data['data'];
         $this->processTranslatedData($job_item, $data);
-        $job_item->addMessage('Translation pulled from remote server.');
+        $job_item->addMessage('Translation for %label pulled from remote server.',
+          array(
+            '%label' => $job_item->getSourceLabel(),
+          ));
       }
     }
     catch (Exception $e) {

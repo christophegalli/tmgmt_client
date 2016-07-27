@@ -65,7 +65,7 @@ class TMGMTClientController extends ControllerBase {
     $remote_source_id = $request->get('id');
     $url = $tmgmt_job_item->getTranslator()->getSetting('remote_url');
 
-    $url .= '/translation-job/' . $remote_source_id . '/sssitem';
+    $url .= '/translation-job/' . $remote_source_id . '/item';
     $result = $tmgmt_job_item->getTranslator()->getPlugin()
       ->pullItemData($tmgmt_job_item, $url);
 
