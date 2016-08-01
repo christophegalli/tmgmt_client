@@ -63,6 +63,23 @@ class ClientTranslatorUi extends TranslatorPluginUiBase {
       '#default_value' => $translator->getSetting('remote_url'),
       '#description' => t('Please enter the URL of the remote provider installation'),
     );
+
+    $form['remote_public'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Public key'),
+      '#default_value' => $translator->getSetting('remote_public'),
+      '#description' => t('Please enter your public key.'),
+      '#required' => TRUE,
+    );
+
+    $form['remote_private'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Private key'),
+      '#default_value' => $translator->getSetting('remote_private'),
+      '#description' => t('Please enter your private key.'),
+      '#required' => TRUE,
+    );
+
     $form += parent::addConnectButton();
 
     return $form;
