@@ -18,6 +18,8 @@ use Drupal\tmgmt\TranslatorInterface;
 use Drupal\tmgmt\Entity\Translator;
 use Drupal\tmgmt\TMGMTException;
 use Drupal\tmgmt\TranslatorPluginBase;
+use Drupal\tmgmt\RemoteMappingInterface;
+use Drupal\tmgmt\Entity\RemoteMapping;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -329,15 +331,14 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
         $response_data = Json::decode($response->getBody()->getContents());
         $data = $response_data['data'];
         $this->processTranslatedData($job_item, $data);
-        $job_item->addMessage('Translation for %label pulled from remote server.',
-          array(
-            '%label' => $job_item->getSourceLabel(),
-          ));
       }
     }
     catch (Exception $e) {
-      $job_item->addMessage('Unable to pull translation from server: ' .
-        $e->getMessage());
+      $job_item->addMessage('Unable to pull translation for @item from server: ' .
+        $e->getMessage(),
+        array(
+          '@item' => $job_item->getSourceLabel(),
+        ));
       return $e->getCode();
     }
     return 200;
@@ -354,7 +355,15 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
     $url = $job->getTranslator()->getSetting('remote_url') . '/remote-item/';
 
     foreach ($job->getItems() as $job_item) {
-      $this->pullItemData($job_item, $url . $job_item->id());
+      // Find the corresponding remote job item.
+      $remote_mappings = $job_item->getRemoteMappings();
+      if(count($remote_mappings) == 0 || count($remote_mappings) >1) {
+        throw new TMGMTException('Number of remote mappings not correct');
+      }
+      $remote_map = array_shift($remote_mappings);
+      /** @var  RemoteMapping $remote_map */
+      $remote_item_id = $remote_map->getRemoteIdentifier1();
+      $this->pullItemData($job_item, $url . $remote_item_id);
     }
   }
 

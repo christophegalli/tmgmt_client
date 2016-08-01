@@ -62,9 +62,12 @@ class TMGMTClientController extends ControllerBase {
   public function clientCallback(Request $request, JobItem $tmgmt_job_item) {
     /* @var int $remote_source_id */
     /* @var array $data */
+    //return new Response('not found', 404);
+
     $remote_source_id = $request->get('id');
     $url = $tmgmt_job_item->getTranslator()->getSetting('remote_url');
 
+    // Get the remote item data using the remote source id as key.
     $url .= '/translation-job/' . $remote_source_id . '/item';
     $result = $tmgmt_job_item->getTranslator()->getPlugin()
       ->pullItemData($tmgmt_job_item, $url);
