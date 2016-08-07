@@ -64,19 +64,31 @@ class ClientTranslatorUi extends TranslatorPluginUiBase {
       '#description' => t('Please enter the URL of the remote provider installation'),
     );
 
-    $form['remote_public'] = array(
+    $form['remote_client_id'] = array(
       '#type' => 'textfield',
-      '#title' => t('Public key'),
-      '#default_value' => $translator->getSetting('remote_public'),
+      '#title' => t('Remote Client ID'),
+      '#default_value' => $translator->getSetting('remote_client_id'),
       '#description' => t('Please enter your public key.'),
       '#required' => TRUE,
     );
 
-    $form['remote_private'] = array(
+    $form['remote_secret'] = array(
       '#type' => 'textfield',
-      '#title' => t('Private key'),
-      '#default_value' => $translator->getSetting('remote_private'),
+      '#title' => t('Remote Secret'),
+      '#default_value' => $translator->getSetting('remote_secret'),
       '#description' => t('Please enter your private key.'),
+      '#required' => TRUE,
+    );
+
+    $api_version = $translator->getSetting('api_version');
+    $api_version = isset($api_version) ? $api_version :
+      \Drupal::config('tmgmt_client.settings')->get('api_version');
+
+    $form['api_version'] = array(
+      '#type' => 'textfield',
+      '#title' => t('API Version prefix'),
+      '#default_value' => $api_version,
+      '#description' => t('Prefix to be used when calling the remote server.'),
       '#required' => TRUE,
     );
 

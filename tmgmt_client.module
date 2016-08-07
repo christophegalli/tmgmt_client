@@ -7,6 +7,11 @@ use Drupal\tmgmt\Entity\Job;
 use Drupal\tmgmt\Entity\JobItem;
 
 /**
+ * The set length for client ID and secret.
+ */
+define('TMGMT_CLIENT_KEY_LENGTH', 64);
+
+/**
  * Submit callback to pull translations form Gengo.
  */
 function _tmgmt_client_pull_submit($form, FormStateInterface $form_state) {
@@ -24,7 +29,4 @@ function _tmgmt_client_pull_submit($form, FormStateInterface $form_state) {
   // Fetch everything for this job.
   $controller->pullRemoteItems($job);
 
-
-
-  // drupal_set_message(t('All available translations from @server have been pulled.'), array('server' => $controller->));
 }

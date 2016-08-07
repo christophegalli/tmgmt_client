@@ -7,6 +7,7 @@
 
 namespace Drupal\tmgmt_client\Plugin\tmgmt\Translator;
 
+use Drupal\Component\Utility\Crypt;
 use Drupal\Core\Url;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\tmgmt\ContinuousTranslatorInterface;
@@ -177,6 +178,7 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
       'de' => 'German (de)',
     );
 
+    $this->createAuthToken($translator);
     // @todo: Get supported languages
     return $languages;
   }
@@ -357,7 +359,7 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
     foreach ($job->getItems() as $job_item) {
       // Find the corresponding remote job item.
       $remote_mappings = $job_item->getRemoteMappings();
-      if(count($remote_mappings) == 0 || count($remote_mappings) >1) {
+      if (count($remote_mappings) == 0 || count($remote_mappings) > 1) {
         throw new TMGMTException('Number of remote mappings not correct');
       }
       $remote_map = array_shift($remote_mappings);
@@ -367,4 +369,17 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
     }
   }
 
-}
+
+  public function createAuthToken(TranslatorInterface $translator) {
+    // Create timestamp.
+    list($usec, $sec) = explode(" ", microtime());
+    $utime = (float) $usec + (float) $sec;
+
+    $secret = Crypt::hmacBase64($utime, $translator->getSetting('secret'));
+    $authenticate = $translator->getSetting('client_id') . '@' . $secret;
+    $authenticate .= '@' . $utime;
+
+    return $authenticate;
+  }
+
+  }

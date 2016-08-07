@@ -4,11 +4,6 @@ tmgmt.translator.settings.client:
     auto_accept:
       type: boolean
       label: Automatically accept
-    remote_url:
+    api_version:
       type: string
-      label: Remote URL of the provider.
-    job_comment:
-      type: string
-      label:  Comment to pass to the remote translator service
-
-
+      label: Version string to be used in URL to call remote server
