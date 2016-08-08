@@ -171,16 +171,42 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
 
   /**
    * Overrides TMGMTDefaultTranslatorPluginController::getSupportedRemoteLanguages().
+   *
+   * @param TranslatorInterface $translator
+   *   Which translator.
+   *
+   * @return array $languages
+   *   Available language pairs.
    */
   public function getSupportedRemoteLanguages(TranslatorInterface $translator) {
-    $languages = array(
-      'en' => 'English (en)',
-      'de' => 'German (de)',
-    );
 
-    $this->createAuthToken($translator);
-    // @todo: Get supported languages
-    return $languages;
+    $available_languages = [];
+    $url = $translator->getSetting('remote_url');
+    $client_id = $translator->getSetting('client_id');
+    $client_secret = $translator->getSetting('secret');
+
+    if (isset($url) && isset($client_id) && isset($client_secret)) {
+      $url .= '/' . $translator->getSetting('api_version');
+      $url .= '/language-pairs';
+
+      $languages = [];
+      $options['header'] = $this->createAuthString($client_id, $client_secret);
+
+      $response = $this->client->request('GET', $url, $options);
+
+      try {
+        $response = $this->client->request('GET', $url, $options);
+
+        if (!empty($response)) {
+          $response_data = Json::decode($response->getBody()->getContents());
+          $languages = $response_data['data'];
+        }
+      }
+      catch (Exception $e) {
+        drupal_set_message('Unable to get remote languages', $e->getCode());
+      }
+    }
+    return $available_languages;
   }
 
   /**
@@ -247,6 +273,7 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
   protected function doRequest(Translator $translator, $action, array $transfer_data) {
 
     $url = $translator->getSetting('remote_url');
+    $url .= '/' . $translator->getSetting('api_version');
     $url .= '/translation-job';
 
     $options['form_params'] = $transfer_data;
@@ -370,14 +397,14 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
   }
 
 
-  public function createAuthToken(TranslatorInterface $translator) {
+  public function createAuthString($client_id, $client_secret) {
     // Create timestamp.
     list($usec, $sec) = explode(" ", microtime());
     $utime = (float) $usec + (float) $sec;
 
-    $secret = Crypt::hmacBase64($utime, $translator->getSetting('secret'));
-    $authenticate = $translator->getSetting('client_id') . '@' . $secret;
-    $authenticate .= '@' . $utime;
+    // Create hash.
+    $secret = Crypt::hmacBase64($utime, $client_secret);
+    $authenticate = $client_id . '@' . $secret . '@' . $utime;
 
     return $authenticate;
   }
