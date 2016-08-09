@@ -183,23 +183,20 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
     $available_languages = [];
     $url = $translator->getSetting('remote_url');
     $client_id = $translator->getSetting('client_id');
-    $client_secret = $translator->getSetting('secret');
+    $client_secret = $translator->getSetting('client_secret');
 
     if (isset($url) && isset($client_id) && isset($client_secret)) {
       $url .= '/' . $translator->getSetting('api_version');
       $url .= '/language-pairs';
 
-      $languages = [];
-      $options['header'] = $this->createAuthString($client_id, $client_secret);
-
-      $response = $this->client->request('GET', $url, $options);
+      $options['header'] = $this->createAuthString($translator);
 
       try {
         $response = $this->client->request('GET', $url, $options);
 
         if (!empty($response)) {
           $response_data = Json::decode($response->getBody()->getContents());
-          $languages = $response_data['data'];
+          $available_languages = $response_data['data'];
         }
       }
       catch (Exception $e) {
@@ -396,17 +393,25 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
     }
   }
 
-
-  public function createAuthString($client_id, $client_secret) {
+  /**
+   * Create the hash from id and secret.
+   *
+   * @param \Drupal\tmgmt\TranslatorInterface $translator
+   *    The used translator entity.
+   *
+   * @return string
+   *   The full authenticate string to be sent to the server.
+   */
+  public function createAuthString(TranslatorInterface $translator) {
     // Create timestamp.
     list($usec, $sec) = explode(" ", microtime());
     $utime = (float) $usec + (float) $sec;
 
     // Create hash.
-    $secret = Crypt::hmacBase64($utime, $client_secret);
-    $authenticate = $client_id . '@' . $secret . '@' . $utime;
+    $secret = Crypt::hmacBase64($utime, $translator->getSetting('client_secret'));
+    $authenticate = $translator->getSetting('client_id') . '@' . $secret . '@' . $utime;
 
     return $authenticate;
   }
 
-  }
+}
