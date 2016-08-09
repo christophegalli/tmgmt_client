@@ -189,14 +189,23 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
       $url .= '/' . $translator->getSetting('api_version');
       $url .= '/language-pairs';
 
-      $options['header'] = $this->createAuthString($translator);
+      $options['headers']['Authenticate'] = $this->createAuthString($translator);
+
+      // Support for debug session, pass on the cookie.
+      if (isset($_COOKIE['XDEBUG_SESSION'])) {
+        $cookie = 'XDEBUG_SESSION=' . $_COOKIE['XDEBUG_SESSION'];
+        $options['headers']['Cookie'] = $cookie;
+      }
 
       try {
         $response = $this->client->request('GET', $url, $options);
 
         if (!empty($response)) {
           $response_data = Json::decode($response->getBody()->getContents());
-          $available_languages = $response_data['data'];
+          foreach ($response_data['data'] as $lang_pair) {
+            $available_languages[$lang_pair['source_language']] = $lang_pair['source_language'];
+            $available_languages[$lang_pair['target_language']] = $lang_pair['target_language'];
+          }
         }
       }
       catch (Exception $e) {
@@ -274,11 +283,12 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
     $url .= '/translation-job';
 
     $options['form_params'] = $transfer_data;
+    $options['headers']['Authenticate'] = $this->createAuthString($translator);
 
     // Support for debug session, pass on the cookie.
     if (isset($_COOKIE['XDEBUG_SESSION'])) {
       $cookie = 'XDEBUG_SESSION=' . $_COOKIE['XDEBUG_SESSION'];
-      $options['headers'] = ['Cookie' => $cookie];
+      $options['headers']['Cookie'] = $cookie;
     }
 
     $response = $this->client->request('POST', $url, $options);
