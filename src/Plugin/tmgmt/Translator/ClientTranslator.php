@@ -22,7 +22,7 @@ use Drupal\tmgmt\TranslatorPluginBase;
 use Drupal\tmgmt\RemoteMappingInterface;
 use Drupal\tmgmt\Entity\RemoteMapping;
 use GuzzleHttp\ClientInterface;
-use GuzzleHttp\Exception;
+use GuzzleHttp\Exception\ClientException;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use \Drupal\tmgmt\Translator\AvailableResult;
 use Drupal\Component\Serialization\Json;
@@ -53,6 +53,13 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    * @var \GuzzleHttp\ClientInterface
    */
   protected $client;
+
+  /**
+   * Contains the last error code returned in case of GuzzleClientException.
+   *
+   * @var string
+   */
+  protected $ConnectErrorCode;
 
   /**
    * Constructs a LocalActionBase object.
@@ -208,8 +215,8 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
           }
         }
       }
-      catch (Exception $e) {
-        drupal_set_message('Unable to get remote languages', $e->getCode());
+      catch (ClientException $e) {
+        $this->ConnectErrorCode = $e->getCode();
       }
     }
     return $available_languages;
@@ -419,9 +426,19 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
 
     // Create hash.
     $secret = Crypt::hmacBase64($utime, $translator->getSetting('client_secret'));
-    $authenticate = $translator->getSetting('client_id') . '@' . $secret . '@' . $utime;
+    $auth_string = $translator->getSetting('client_id') . '@' . $secret . '@' . $utime;
 
-    return $authenticate;
+    return $auth_string;
+  }
+
+  /**
+   * Get Error Code porperty.
+   *
+   * @return string
+   *   Error Code.
+   */
+  public function getConnectErrorCode() {
+    return $this->ConnectErrorCode;
   }
 
 }

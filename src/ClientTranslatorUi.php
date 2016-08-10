@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file
  * Contains \Drupal\tmgmt_client\ClientTranslatorUi.
@@ -103,10 +104,13 @@ class ClientTranslatorUi extends TranslatorPluginUiBase {
   public function validateConfigurationForm(array &$form, FormStateInterface $form_state) {
     parent::validateConfigurationForm($form, $form_state);
     /** @var \Drupal\tmgmt\TranslatorInterface $translator */
+    /** @var \Drupal\tmgmt_client\Plugin\tmgmt\Translator\ClientTranslator $plugin */
     $translator = $form_state->getFormObject()->getEntity();
-    $supported_remote_languages = $translator->getPlugin()->getSupportedRemoteLanguages($translator);
+    $plugin = $translator->getPlugin();
+    $supported_remote_languages = $plugin->getSupportedRemoteLanguages($translator);
     if (empty($supported_remote_languages)) {
-      $form_state->setErrorByName('settings][remote_url', t('The URL is not correct'));
+      $error_code = $plugin->getConnectErrorCode();
+      $form_state->setErrorByName('settings', 'The connection failed, Code ' . $error_code);
     }
   }
 
