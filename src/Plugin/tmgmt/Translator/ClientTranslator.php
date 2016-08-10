@@ -394,7 +394,9 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    *   The job to pull.
    */
   public function pullRemoteItems(Job $job) {
-    /** @var JobItem $job_item $url */
+    /** @var \Drupal\tmgmt\Entity\JobItem $job_item */
+    /** @var \Drupal\tmgmt\Entity\RemoteMapping $remote_map */
+    /** @var array $remote_mappings */
     $url = $job->getTranslator()->getSetting('remote_url') . '/remote-item/';
 
     foreach ($job->getItems() as $job_item) {
@@ -404,7 +406,6 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
         throw new TMGMTException('Number of remote mappings not correct');
       }
       $remote_map = array_shift($remote_mappings);
-      /** @var  RemoteMapping $remote_map */
       $remote_item_id = $remote_map->getRemoteIdentifier1();
       $this->pullItemData($job_item, $url . $remote_item_id);
     }

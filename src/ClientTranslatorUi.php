@@ -110,7 +110,10 @@ class ClientTranslatorUi extends TranslatorPluginUiBase {
     $supported_remote_languages = $plugin->getSupportedRemoteLanguages($translator);
     if (empty($supported_remote_languages)) {
       $error_code = $plugin->getConnectErrorCode();
-      $form_state->setErrorByName('settings', 'The connection failed, Code ' . $error_code);
+      $message = $form_state->getValues()['op']->render() == 'Save' ?
+        t('Saving not possible. ') : '';
+      $message .= t('Connection failed, Error ') . $error_code;
+      $form_state->setErrorByName('settings', $message);
     }
   }
 
