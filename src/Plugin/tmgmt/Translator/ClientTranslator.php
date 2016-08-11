@@ -23,6 +23,7 @@ use Drupal\tmgmt\RemoteMappingInterface;
 use Drupal\tmgmt\Entity\RemoteMapping;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\ClientException;
+use GuzzleHttp\Exception\ServerException;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use \Drupal\tmgmt\Translator\AvailableResult;
 use Drupal\Component\Serialization\Json;
@@ -216,6 +217,9 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
         }
       }
       catch (ClientException $e) {
+        $this->ConnectErrorCode = $e->getCode();
+      }
+      catch (ServerException $e) {
         $this->ConnectErrorCode = $e->getCode();
       }
     }
