@@ -27,6 +27,7 @@ use GuzzleHttp\Exception\ServerException;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use \Drupal\tmgmt\Translator\AvailableResult;
 use Drupal\Component\Serialization\Json;
+use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Client translator plugin.
@@ -444,6 +445,24 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    */
   public function getConnectErrorCode() {
     return $this->ConnectErrorCode;
+  }
+
+  public function tmgmtClientPullSubmit(array $form, FormStateInterface $form_state) {
+
+    /**
+     * @var Job $job
+     */
+    $job = $form_state->getFormObject()->getEntity();
+
+    /**
+     * @var ClientTranslator $translator
+     */
+
+    $controller = $job->getTranslator()->getPlugin();
+
+    // Fetch everything for this job.
+    $controller->pullRemoteItems($job);
+
   }
 
 }

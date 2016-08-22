@@ -10,6 +10,7 @@ namespace Drupal\tmgmt_client;
 use Drupal\tmgmt\TranslatorPluginUiBase;
 use Drupal\tmgmt\JobInterface;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\tmgmt_client\Plugin\tmgmt\Translator\ClientTranslator;
 
 /**
  * Client translator UI.
@@ -40,8 +41,10 @@ class ClientTranslatorUi extends TranslatorPluginUiBase {
     if ($job->isActive()) {
       $form['actions']['pull'] = array(
         '#type' => 'submit',
-        '#value' => t('Pull translations from remote server'),
-        '#submit' => array('_tmgmt_client_pull_submit'),
+        '#value' => t('Pull translations from remote server aa'),
+        '#submit' => [
+          [ClientTranslator::class, 'tmgmtClientPullSubmit'],
+        ],
         '#weight' => -10,
       );
     }
@@ -110,9 +113,12 @@ class ClientTranslatorUi extends TranslatorPluginUiBase {
     $supported_remote_languages = $plugin->getSupportedRemoteLanguages($translator);
     if (empty($supported_remote_languages)) {
       $error_code = $plugin->getConnectErrorCode();
-      $message = $form_state->getValues()['op']->render() == 'Save' ?
+
+      // Set message depending on the operation that triggered the validation.
+      $message = (string) $form_state->getTriggeringElement()['#value'] == t('Save') ?
         t('Saving not possible. ') : '';
       $message .= t('Connection failed, Error ') . $error_code;
+
       $form_state->setErrorByName('settings', $message);
     }
   }
