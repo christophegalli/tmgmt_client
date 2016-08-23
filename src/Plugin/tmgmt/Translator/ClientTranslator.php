@@ -165,11 +165,11 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
       'comment' => $job->getSetting('job_comment'),
     );
 
-    $response = $this->doRequest($job->getTranslator(), 'translate', $transferData);
+    $response = $this->doRequest($job->getTranslator(), 'POST', 'translation-job', NULL, $transferData);
 
     foreach ($response['data']['remote_mapping'] as $local_key => $remote_key) {
       $item = JobItem::load($local_key);
-      $item->addRemoteMapping(null,$remote_key);
+      $item->addRemoteMapping(NULL, $remote_key);
       $item->save();
 
     }
@@ -276,8 +276,12 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    *
    * @param Translator $translator
    *   The translator entity to get the settings from.
+   * @param string $requestType
+   *   POST, GET etc.
    * @param string $action
-   *   Action to be performed [translate, languages, detect].
+   *   Action to be performed.
+   * @param JobItem $job_item
+   *   The item for which to do action.
    * @param array $transfer_data
    *   Job and other Data to be sent to the server.
    *
@@ -288,13 +292,30 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    *   - Invalid action provided.
    *   - Error returned by the Google Service.
    */
-  protected function doRequest(Translator $translator, $action, array $transfer_data) {
+  protected function doRequest(Translator $translator,
+                               $requestType,
+                               $action,
+                               JobItem $job_item = NULL,
+                               $transfer_data = NULL) {
 
+    // Build the url.
     $url = $translator->getSetting('remote_url');
     $url .= '/' . $translator->getSetting('api_version');
-    $url .= '/translation-job';
+    $url .= '/' . $action;
 
-    $options['form_params'] = $transfer_data;
+    // Add the job item id if provided.
+    if (isset($job_item)) {
+      $url .= '/' . $job_item->id();
+    }
+
+    $options = [];
+
+    // Prepare the body if there is data to transfer.
+    if (isset($transfer_data)) {
+      $options['form_params'] = $transfer_data;
+    }
+
+    // Add the authentication string for identification at the server.
     $options['headers']['Authenticate'] = $this->createAuthString($translator);
 
     // Support for debug session, pass on the cookie.
@@ -303,11 +324,11 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
       $options['headers']['Cookie'] = $cookie;
     }
 
-    $response = $this->client->request('POST', $url, $options);
-
-    if ($response->getStatusCode() != 200) {
-      throw new \TMGMTException('Unable to connect to the remote service due to following error: @error at @url',
-        array('@error' => $response->error, '@url' => $url));
+    try {
+      $response = $this->client->request($requestType, $url, $options);
+    }
+    catch (Exception $e) {
+      return $e->getCode();
     }
 
     $data = $response->getBody()->getContents();
@@ -398,7 +419,7 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    * @param \Drupal\tmgmt\Entity\Job $job
    *   The job to pull.
    */
-  public function pullRemoteItems(Job $job) {
+  public function pullJobItems(Job $job) {
     /** @var \Drupal\tmgmt\Entity\JobItem $job_item */
     /** @var \Drupal\tmgmt\Entity\RemoteMapping $remote_map */
     /** @var array $remote_mappings */
@@ -407,14 +428,15 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
     foreach ($job->getItems() as $job_item) {
       // Find the corresponding remote job item.
       $remote_mappings = $job_item->getRemoteMappings();
-      if (count($remote_mappings) == 0 || count($remote_mappings) > 1) {
-        throw new TMGMTException('Number of remote mappings not correct');
+      if (count($remote_mappings) == 0) {
+        throw new TMGMTException('The item was not properly submitted to the server');
       }
       $remote_map = array_shift($remote_mappings);
       $remote_item_id = $remote_map->getRemoteIdentifier1();
       $this->pullItemData($job_item, $url . $remote_item_id);
     }
   }
+
 
   /**
    * Create the hash from id and secret.
@@ -454,14 +476,8 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
      */
     $job = $form_state->getFormObject()->getEntity();
 
-    /**
-     * @var ClientTranslator $translator
-     */
-
-    $controller = $job->getTranslator()->getPlugin();
-
     // Fetch everything for this job.
-    $controller->pullRemoteItems($job);
+    $this->pullJobItems($job);
 
   }
 
