@@ -3,11 +3,10 @@
 namespace Drupal\tmgmt_client\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
-use GuzzleHttp\Client;
-use Drupal\Component\Serialization\Json;
 use Drupal\tmgmt\Entity\JobItem;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Drupal\tmgmt_client\Plugin\tmgmt\Translator\ClientTranslator;
 
 /**
  * Class TMGMTClientController.
@@ -15,38 +14,6 @@ use Symfony\Component\HttpFoundation\Response;
  * @package Drupal\tmgmt_client\Controller
  */
 class TMGMTClientController extends ControllerBase {
-
-  /**
-   * Testing path for development.
-   *
-   * @return string
-   *   Return Hello string.
-   */
-  public function requestTest() {
-
-    $json_data = '{"from":"en","to":"de","items":{"3":{"data":{"title":[{"value":{"#text":"Basic two","#translate":true,"#max_length":255,"#status":0,"#parent_label":["Title"]}}],"body":[{"value":{"#label":"Text","#text":"\u003Cp\u003Ebody two\u003C\/p\u003E\r\n","#translate":true,"#format":"basic_html","#status":0,"#parent_label":["Body","Text"]}}]},"label":"Basic two","callback":"\/tmgmt\/tmgmt-drupal-callback\/3"},"4":{"data":{"title":[{"value":{"#text":"basic one","#translate":true,"#max_length":255,"#status":0,"#parent_label":["Title"]}}],"body":[{"value":{"#label":"Text","#text":"\u003Cp\u003Ebody first\u003C\/p\u003E\r\n","#translate":true,"#format":"basic_html","#status":0,"#parent_label":["Body","Text"]}}]},"label":"basic one","callback":"\/tmgmt\/tmgmt-drupal-callback\/4"}},"comment":null}';
-    $array_data = Json::decode($json_data);
-
-    $url = 'http://ubuntudev/tmgmt/translation-job';
-
-    $request_query = $array_data;
-    $options['form_params'] = $request_query;
-
-    $client = new Client();
-
-    $options['headers'] = array('Cookie' => 'XDEBUG_SESSION=PHPSTORM');
-    $response = $client->request('POST', $url, $options);
-
-    $data = $response->getBody()->getContents();
-
-    $array_result = Json::decode($data);
-
-    return [
-      '#type' => 'markup',
-      '#markup' => $data,
-    ];
-  }
-
 
   /**
    * Callback form server when job item has been translated.
@@ -62,15 +29,12 @@ class TMGMTClientController extends ControllerBase {
   public function clientCallback(Request $request, JobItem $tmgmt_job_item) {
     /* @var int $remote_source_id */
     /* @var array $data */
-    //return new Response('not found', 404);
+    /** @var ClientTranslator $plugin */
+    return new Response('not found', 404);
 
-    $remote_source_id = $request->get('id');
-    $url = $tmgmt_job_item->getTranslator()->getSetting('remote_url');
-
-    // Get the remote item data using the remote source id as key.
-    $url .= '/translation-job/' . $remote_source_id . '/item';
-    $result = $tmgmt_job_item->getTranslator()->getPlugin()
-      ->pullItemData($tmgmt_job_item, $url);
+    // Get the remote item data.
+    $plugin = $tmgmt_job_item->getTranslator()->getPlugin();
+    $result = $plugin->pullItemData($tmgmt_job_item->getTranslator(), $tmgmt_job_item);
 
     return new Response('', $result);
 

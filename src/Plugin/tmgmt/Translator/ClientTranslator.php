@@ -24,6 +24,7 @@ use Drupal\tmgmt\Entity\RemoteMapping;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\ServerException;
+use GuzzleHttp\Psr7\Response;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use \Drupal\tmgmt\Translator\AvailableResult;
 use Drupal\Component\Serialization\Json;
@@ -167,7 +168,9 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
 
     $response = $this->doRequest($job->getTranslator(), 'POST', 'translation-job', NULL, $transferData);
 
-    foreach ($response['data']['remote_mapping'] as $local_key => $remote_key) {
+    $response_data = Json::decode($response->getBody()->getContents());
+
+    foreach ($response_data['data']['remote_mapping'] as $local_key => $remote_key) {
       $item = JobItem::load($local_key);
       $item->addRemoteMapping(NULL, $remote_key);
       $item->save();
@@ -195,19 +198,8 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
     $client_secret = $translator->getSetting('client_secret');
 
     if (isset($url) && isset($client_id) && isset($client_secret)) {
-      $url .= '/' . $translator->getSetting('api_version');
-      $url .= '/language-pairs';
-
-      $options['headers']['Authenticate'] = $this->createAuthString($translator);
-
-      // Support for debug session, pass on the cookie.
-      if (isset($_COOKIE['XDEBUG_SESSION'])) {
-        $cookie = 'XDEBUG_SESSION=' . $_COOKIE['XDEBUG_SESSION'];
-        $options['headers']['Cookie'] = $cookie;
-      }
-
       try {
-        $response = $this->client->request('GET', $url, $options);
+        $response = $this->doRequest($translator, 'GET', 'language-pairs');
 
         if (!empty($response)) {
           $response_data = Json::decode($response->getBody()->getContents());
@@ -280,22 +272,22 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    *   POST, GET etc.
    * @param string $action
    *   Action to be performed.
-   * @param JobItem $job_item
+   * @param int $job_item_id
    *   The item for which to do action.
    * @param array $transfer_data
    *   Job and other Data to be sent to the server.
    *
-   * @return array object
-   *   Unserialized JSON response from Server.
+   * @return Response $response
+   *   Response retrun from server.
    *
    * @throws TMGMTException.
    *   - Invalid action provided.
    *   - Error returned by the Google Service.
    */
-  protected function doRequest(Translator $translator,
+  protected function doRequest(TranslatorInterface $translator,
                                $requestType,
                                $action,
-                               JobItem $job_item = NULL,
+                               $job_item_id = NULL,
                                $transfer_data = NULL) {
 
     // Build the url.
@@ -304,8 +296,8 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
     $url .= '/' . $action;
 
     // Add the job item id if provided.
-    if (isset($job_item)) {
-      $url .= '/' . $job_item->id();
+    if (isset($job_item_id)) {
+      $url .= '/' . $job_item_id;
     }
 
     $options = [];
@@ -331,8 +323,9 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
       return $e->getCode();
     }
 
-    $data = $response->getBody()->getContents();
-    return Json::decode($data);
+    return $response;
+
+
   }
 
   /**
@@ -382,7 +375,7 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    * @return int|mixed
    *    Http return code.
    */
-  public function pullItemData(JobItem $job_item, $url) {
+  public function pullItemDataOld(JobItem $job_item, $url) {
 
     // Get data from remote and add it to the local item.
     $options = [];
@@ -420,23 +413,34 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    *   The job to pull.
    */
   public function pullJobItems(Job $job) {
-    /** @var \Drupal\tmgmt\Entity\JobItem $job_item */
-    /** @var \Drupal\tmgmt\Entity\RemoteMapping $remote_map */
-    /** @var array $remote_mappings */
-    $url = $job->getTranslator()->getSetting('remote_url') . '/remote-item/';
+
+    $translator = $job->getTranslator();
 
     foreach ($job->getItems() as $job_item) {
-      // Find the corresponding remote job item.
-      $remote_mappings = $job_item->getRemoteMappings();
-      if (count($remote_mappings) == 0) {
-        throw new TMGMTException('The item was not properly submitted to the server');
-      }
-      $remote_map = array_shift($remote_mappings);
-      $remote_item_id = $remote_map->getRemoteIdentifier1();
-      $this->pullItemData($job_item, $url . $remote_item_id);
+      $this->pullItemData($translator, $job_item);
     }
   }
 
+  public function pullItemData(TranslatorInterface $translator, JobItem $job_item) {
+    // Find the corresponding remote job item.
+    $remote_mappings = $job_item->getRemoteMappings();
+    $remote_map = array_shift($remote_mappings);
+    $remote_item_id = $remote_map->getRemoteIdentifier1();
+
+    $response = NULL;
+    try {
+      $response = $this->doRequest($translator, 'GET', 'remote-item', $remote_item_id);
+      if (!empty($response)) {
+        $response_data = Json::decode($response->getBody()->getContents());
+        $data = $response_data['data'];
+        $this->processTranslatedData($job_item, $data);
+      }
+    }
+    catch (Exception $e) {
+
+    }
+    return 200;
+  }
 
   /**
    * Create the hash from id and secret.
@@ -471,13 +475,14 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
 
   public function tmgmtClientPullSubmit(array $form, FormStateInterface $form_state) {
 
-    /**
-     * @var Job $job
-     */
+    /** @var Job $job */
+    /** @var ClientTranslator $plugin */
+
     $job = $form_state->getFormObject()->getEntity();
+    $plugin = $job->getTranslator()->getPlugin();
 
     // Fetch everything for this job.
-    $this->pullJobItems($job);
+    $plugin->pullJobItems($job);
 
   }
 
