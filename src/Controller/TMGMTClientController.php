@@ -30,14 +30,19 @@ class TMGMTClientController extends ControllerBase {
     /* @var int $remote_source_id */
     /* @var array $data */
     /** @var ClientTranslator $plugin */
-    return new Response('not found', 404);
 
+     return '404';
     // Get the remote item data.
     $plugin = $tmgmt_job_item->getTranslator()->getPlugin();
-    $result = $plugin->pullItemData($tmgmt_job_item->getTranslator(), $tmgmt_job_item);
 
-    return new Response('', $result);
+    try {
+      $plugin->pullItemData($tmgmt_job_item);
 
+      return new Response('');
+    }
+    catch (Exception $e) {
+      return $e->getCode();
+    }
   }
 
 }

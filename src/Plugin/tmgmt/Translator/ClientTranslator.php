@@ -97,13 +97,14 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    * Overrides TMGMTDefaultTranslatorPluginController::checkAvailable().
    */
   public function checkAvailable(TranslatorInterface $translator) {
-    if ($translator->getSetting('remote_url')) {
+    if ($translator->getSetting('remote_url') &&
+      $translator->getSetting('client_id') &&
+      $translator->getSetting('client_secret')) {
       return AvailableResult::yes();
     }
 
     return AvailableResult::no(t('@translator is not available.', [
       '@translator' => $translator->label(),
-      ':configured' => $translator->url(),
     ]));
   }
 
@@ -166,18 +167,23 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
       'comment' => $job->getSetting('job_comment'),
     );
 
-    $response = $this->doRequest($job->getTranslator(), 'POST', 'translation-job', NULL, $transferData);
+    try {
+      $response = $this->doRequest($job->getTranslator(), 'POST', 'translation-job', $transferData);
 
-    $response_data = Json::decode($response->getBody()->getContents());
+      $response_data = Json::decode($response->getBody()->getContents());
 
-    foreach ($response_data['data']['remote_mapping'] as $local_key => $remote_key) {
-      $item = JobItem::load($local_key);
-      $item->addRemoteMapping(NULL, $remote_key);
-      $item->save();
+      foreach ($response_data['data']['remote_mapping'] as $local_key => $remote_key) {
+        $item = JobItem::load($local_key);
+        $item->addRemoteMapping(NULL, $remote_key);
+        $item->save();
 
+      }
+      if (!$job->isRejected()) {
+        $job->submitted('The translation job has been submitted.');
+      }
     }
-    if (!$job->isRejected()) {
-      $job->submitted('The translation job has been submitted.');
+    catch (Exception $e) {
+      throw new TMGMTException($e->getMessage(), NULL, $e->getCode());
     }
   }
 
@@ -191,31 +197,30 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    *   Available language pairs.
    */
   public function getSupportedRemoteLanguages(TranslatorInterface $translator) {
-
     $available_languages = [];
-    $url = $translator->getSetting('remote_url');
-    $client_id = $translator->getSetting('client_id');
-    $client_secret = $translator->getSetting('client_secret');
 
-    if (isset($url) && isset($client_id) && isset($client_secret)) {
-      try {
-        $response = $this->doRequest($translator, 'GET', 'language-pairs');
+    if (!$this->checkAvailable($translator)->getSuccess()) {
+      return $available_languages;
+    }
 
-        if (!empty($response)) {
-          $response_data = Json::decode($response->getBody()->getContents());
-          foreach ($response_data['data'] as $lang_pair) {
-            $available_languages[$lang_pair['source_language']] = $lang_pair['source_language'];
-            $available_languages[$lang_pair['target_language']] = $lang_pair['target_language'];
-          }
+    try {
+      $response = $this->doRequest($translator, 'GET', 'language-pairs');
+
+      if (!empty($response)) {
+        $response_data = Json::decode($response->getBody()->getContents());
+        foreach ($response_data['data'] as $lang_pair) {
+          $available_languages[$lang_pair['source_language']] = $lang_pair['source_language'];
+          $available_languages[$lang_pair['target_language']] = $lang_pair['target_language'];
         }
       }
-      catch (ClientException $e) {
-        $this->ConnectErrorCode = $e->getCode();
-      }
-      catch (ServerException $e) {
-        $this->ConnectErrorCode = $e->getCode();
-      }
     }
+    catch (ClientException $e) {
+      $this->ConnectErrorCode = $e->getCode();
+    }
+    catch (ServerException $e) {
+      $this->ConnectErrorCode = $e->getCode();
+    }
+
     return $available_languages;
   }
 
@@ -287,7 +292,6 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
   protected function doRequest(TranslatorInterface $translator,
                                $requestType,
                                $action,
-                               $job_item_id = NULL,
                                $transfer_data = NULL) {
 
     // Build the url.
@@ -316,15 +320,9 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
       $options['headers']['Cookie'] = $cookie;
     }
 
-    try {
-      $response = $this->client->request($requestType, $url, $options);
-    }
-    catch (Exception $e) {
-      return $e->getCode();
-    }
+    $response = $this->client->request($requestType, $url, $options);
 
     return $response;
-
 
   }
 
@@ -365,48 +363,6 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
   }
 
   /**
-   * Get data from remote and add it to the local item.
-   *
-   * @param \Drupal\tmgmt\Entity\JobItem $job_item
-   *    Job item for which to get data.
-   * @param string $url
-   *    Which callback to use.
-   *
-   * @return int|mixed
-   *    Http return code.
-   */
-  public function pullItemDataOld(JobItem $job_item, $url) {
-
-    // Get data from remote and add it to the local item.
-    $options = [];
-
-    // Support for debug session, pass on the cookie.
-    if (isset($_COOKIE['XDEBUG_SESSION'])) {
-      $cookie = 'XDEBUG_SESSION=' . $_COOKIE['XDEBUG_SESSION'];
-      $options['headers'] = ['Cookie' => $cookie];
-    }
-
-    try {
-      $response = $this->client->request('GET', $url, $options);
-
-      if (!empty($response)) {
-        $response_data = Json::decode($response->getBody()->getContents());
-        $data = $response_data['data'];
-        $this->processTranslatedData($job_item, $data);
-      }
-    }
-    catch (Exception $e) {
-      $job_item->addMessage('Unable to pull translation for @item from server: ' .
-        $e->getMessage(),
-        array(
-          '@item' => $job_item->getSourceLabel(),
-        ));
-      return $e->getCode();
-    }
-    return 200;
-  }
-
-  /**
    * Pull all ready items from remote.
    *
    * @param \Drupal\tmgmt\Entity\Job $job
@@ -414,32 +370,34 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    */
   public function pullJobItems(Job $job) {
 
-    $translator = $job->getTranslator();
-
-    foreach ($job->getItems() as $job_item) {
-      $this->pullItemData($translator, $job_item);
+    try {
+      foreach ($job->getItems() as $job_item) {
+        $this->pullItemData($job_item);
+      }
     }
+    catch (\Exception $e) {
+      return FALSE;
+    }
+
+    return TRUE;
   }
 
-  public function pullItemData(TranslatorInterface $translator, JobItem $job_item) {
+  public function pullItemData(JobItem $job_item) {
+
     // Find the corresponding remote job item.
     $remote_mappings = $job_item->getRemoteMappings();
     $remote_map = array_shift($remote_mappings);
     $remote_item_id = $remote_map->getRemoteIdentifier1();
+    $translator = $job_item->getTranslator();
+    $action = 'translation-job/' . $remote_item_id . '/pull/';
 
     $response = NULL;
-    try {
-      $response = $this->doRequest($translator, 'GET', 'remote-item', $remote_item_id);
-      if (!empty($response)) {
-        $response_data = Json::decode($response->getBody()->getContents());
-        $data = $response_data['data'];
-        $this->processTranslatedData($job_item, $data);
-      }
+    $response = $this->doRequest($translator, 'GET', $action);
+    if (!empty($response)) {
+      $response_data = Json::decode($response->getBody()->getContents());
+      $data = $response_data['data'];
+      $this->processTranslatedData($job_item, $data);
     }
-    catch (Exception $e) {
-
-    }
-    return 200;
   }
 
   /**
@@ -463,27 +421,6 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
     return $auth_string;
   }
 
-  /**
-   * Get Error Code porperty.
-   *
-   * @return string
-   *   Error Code.
-   */
-  public function getConnectErrorCode() {
-    return $this->ConnectErrorCode;
-  }
 
-  public function tmgmtClientPullSubmit(array $form, FormStateInterface $form_state) {
-
-    /** @var Job $job */
-    /** @var ClientTranslator $plugin */
-
-    $job = $form_state->getFormObject()->getEntity();
-    $plugin = $job->getTranslator()->getPlugin();
-
-    // Fetch everything for this job.
-    $plugin->pullJobItems($job);
-
-  }
 
 }

@@ -9,6 +9,7 @@ namespace Drupal\tmgmt_client;
 
 use Drupal\tmgmt\TranslatorPluginUiBase;
 use Drupal\tmgmt\JobInterface;
+use Drupal\tmgmt\Entity\Job;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\tmgmt_client\Plugin\tmgmt\Translator\ClientTranslator;
 
@@ -41,9 +42,9 @@ class ClientTranslatorUi extends TranslatorPluginUiBase {
     if ($job->isActive()) {
       $form['actions']['pull'] = array(
         '#type' => 'submit',
-        '#value' => t('Pull translations from remote server aa'),
+        '#value' => t('Pull translations from remote server'),
         '#submit' => [
-          [ClientTranslator::class, 'tmgmtClientPullSubmit'],
+          [$this, 'submitPullTranslations'],
         ],
         '#weight' => -10,
       );
@@ -121,6 +122,21 @@ class ClientTranslatorUi extends TranslatorPluginUiBase {
 
       $form_state->setErrorByName('settings', $message);
     }
+  }
+
+  public function submitPullTranslations(array $form, FormStateInterface $form_state) {
+
+    /** @var Job $job */
+    /** @var ClientTranslator $plugin */
+
+    $job = $form_state->getFormObject()->getEntity();
+    $plugin = $job->getTranslator()->getPlugin();
+
+    // Fetch everything for this job.
+    if (!$plugin->pullJobItems($job)) {
+      drupal_set_message(t('Failed to pull translations from server'),'error');
+    }
+
   }
 
 }

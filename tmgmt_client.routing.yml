@@ -5,10 +5,3 @@ tmgmt_client.callback:
     _title: 'Client Callback'
   requirements:
     _permission: 'access content'
-tmgmt_client.requestTest:
-  path: 'requestTest'
-  defaults:
-    _controller: '\Drupal\tmgmt_client\Controller\TMGMTClientController::requestTest'
-    _title: 'requestTest'
-  requirements:
-    _permission: 'access content'
