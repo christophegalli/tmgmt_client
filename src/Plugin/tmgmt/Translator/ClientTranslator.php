@@ -160,7 +160,7 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
     }
 
     $transferData = array(
-      'label' => $job->label(),
+      'label' => (string)$job->label(),
       'from' => $job->getSourceLangcode(),
       'to' => $job->getTargetLangcode(),
       'items' => $items,
