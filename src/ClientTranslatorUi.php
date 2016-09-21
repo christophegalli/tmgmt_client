@@ -19,6 +19,13 @@ use Drupal\tmgmt_client\Plugin\tmgmt\Translator\ClientTranslator;
 class ClientTranslatorUi extends TranslatorPluginUiBase {
 
   /**
+   * Api version for new client.
+   *
+   * @const DEFAULT_API_VERSION
+   */
+  const DEFAULT_API_VERSION = 'api/v3';
+
+  /**
    * {@inheritdoc}
    */
   public function checkoutSettingsForm(array $form, FormStateInterface $form_state, JobInterface $job) {
@@ -86,8 +93,7 @@ class ClientTranslatorUi extends TranslatorPluginUiBase {
     );
 
     $api_version = $translator->getSetting('api_version');
-    $api_version = isset($api_version) ? $api_version :
-      \Drupal::config('tmgmt_client.settings')->get('api_version');
+    $api_version = isset($api_version) ? $api_version : $this::DEFAULT_API_VERSION;
 
     $form['api_version'] = array(
       '#type' => 'textfield',

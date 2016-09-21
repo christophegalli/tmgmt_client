@@ -1,10 +1,5 @@
 <?php
 
-/**
- * @file
- * Contains \Drupal\tmgmt_client\Plugin\tmgmt\Translator\ClientTranslator.
- */
-
 namespace Drupal\tmgmt_client\Plugin\tmgmt\Translator;
 
 use Drupal\Component\Utility\Crypt;
@@ -24,11 +19,9 @@ use Drupal\tmgmt\Entity\RemoteMapping;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\ServerException;
-use GuzzleHttp\Psr7\Response;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use \Drupal\tmgmt\Translator\AvailableResult;
 use Drupal\Component\Serialization\Json;
-use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Client translator plugin.
@@ -95,6 +88,12 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
 
   /**
    * Overrides TMGMTDefaultTranslatorPluginController::checkAvailable().
+   *
+   * @param TranslatorInterface $translator
+   *   The translator.
+   *
+   * @return AvailableResult
+   *   RFeport success or failure.
    */
   public function checkAvailable(TranslatorInterface $translator) {
     if ($translator->getSetting('remote_url') &&
@@ -109,14 +108,13 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
   }
 
   /**
-   * Overrides TMGMTDefaultTranslatorPluginController::checkTranslatable().
-   */
-  public function checkTranslatable(TranslatorInterface $translator, JobInterface $job) {
-    return parent::checkTranslatable($translator, $job);
-  }
-
-  /**
    * Retrieve the callback url for a job item.
+   *
+   * @param JobItemInterface $item
+   *   Job item to pull the url for.
+   *
+   * @return string
+   *   url string.
    */
   public function getCallbackUrl(JobItemInterface $item) {
     return Url::fromRoute('tmgmt_client.callback', array('tmgmt_job_item' => $item->id()),
@@ -124,8 +122,7 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
   }
 
   /**
-   * Retrieves the filtered and structured data array for a single job item in
-   * a translation request array.
+   * Retrieves the filtered and structured data array for a single job item.
    *
    * @param JobItemInterface $item
    *   The job item to retrieve the structured data array for.
@@ -150,6 +147,9 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    *
    * @param JobInterface $job
    *   The job to be translated.
+   *
+   * @throws TMGMTException
+   *   Request not successful.
    */
   public function requestTranslation(JobInterface $job) {
     /** @var array $items */
@@ -160,7 +160,7 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
     }
 
     $transferData = array(
-      'label' => (string)$job->label(),
+      'label' => (string) $job->label(),
       'from' => $job->getSourceLangcode(),
       'to' => $job->getTargetLangcode(),
       'items' => $items,
@@ -182,7 +182,7 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
         $job->submitted('The translation job has been submitted.');
       }
     }
-    catch (Exception $e) {
+    catch (\Exception $e) {
       throw new TMGMTException($e->getMessage(), NULL, $e->getCode());
     }
   }
@@ -199,6 +199,7 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
   public function getSupportedRemoteLanguages(TranslatorInterface $translator) {
     $available_languages = [];
 
+    // Continue only if all necessary settings are available.
     if (!$this->checkAvailable($translator)->getSuccess()) {
       return $available_languages;
     }
@@ -247,6 +248,9 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    */
   public function getSupportedTargetLanguages(TranslatorInterface $translator, $source_language) {
 
+
+
+
     $languages = $this->getSupportedRemoteLanguages($translator);
 
     // There are no language pairs, any supported language can be translated
@@ -271,13 +275,12 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
   /**
    * Local method to do request to TMGMT Server.
    *
-   * @param Translator $translator
+   * @param TranslatorInterface $translator
    *   The translator entity to get the settings from.
    * @param string $requestType
    *   POST, GET etc.
    * @param string $action
    *   Action to be performed.
-   * @param int $job_item_id
    *   The item for which to do action.
    * @param array $transfer_data
    *   Job and other Data to be sent to the server.
@@ -331,9 +334,10 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    *
    * Done for automated testing.
    *
-   * @param $translator_url
+   * @param string $translator_url
+   *   Url string.
    */
-  final public function setTranslatorURL($translator_url) {
+  final public function setTranslatorUrl($translator_url) {
     $this->translatorUrl = $translator_url;
   }
 
@@ -367,6 +371,9 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    *
    * @param \Drupal\tmgmt\Entity\Job $job
    *   The job to pull.
+   *
+   * @return bool
+   *   Report success or failure.
    */
   public function pullJobItems(Job $job) {
 
@@ -382,6 +389,12 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
     return TRUE;
   }
 
+  /**
+   * Get the translated date from the remote server.
+   *
+   * @param \Drupal\tmgmt\Entity\JobItem $job_item
+   *   Item to pull data for from the remote server.
+   */
   public function pullItemData(JobItem $job_item) {
 
     // Find the corresponding remote job item.
@@ -420,7 +433,5 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
 
     return $auth_string;
   }
-
-
 
 }
