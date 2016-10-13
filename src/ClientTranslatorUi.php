@@ -23,7 +23,7 @@ class ClientTranslatorUi extends TranslatorPluginUiBase {
    *
    * @const DEFAULT_API_VERSION
    */
-  const DEFAULT_API_VERSION = 'api/v3';
+  const DEFAULT_API_VERSION = 'api/v1';
 
   /**
    * {@inheritdoc}
@@ -117,7 +117,18 @@ class ClientTranslatorUi extends TranslatorPluginUiBase {
     /** @var \Drupal\tmgmt_client\Plugin\tmgmt\Translator\ClientTranslator $plugin */
     $translator = $form_state->getFormObject()->getEntity();
     $plugin = $translator->getPlugin();
+
+    // Fill the settings from the fields to ke translator available.
+    $settings = $form_state->getValue('settings');
+    $translator->setSettings(array(
+      'remote_url' => $settings['remote_url'],
+      'client_id' => $settings['client_id'],
+      'client_secret' => $settings['client_secret'],
+      'api_version' => $settings['api_version'],
+
+    ));
     $supported_remote_languages = $plugin->getSupportedRemoteLanguages($translator);
+
     if (empty($supported_remote_languages)) {
       $error_code = $plugin->getConnectErrorCode();
 

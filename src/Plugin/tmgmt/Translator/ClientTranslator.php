@@ -30,7 +30,8 @@ use Drupal\Component\Serialization\Json;
  *   id = "client",
  *   label = @Translation("Client"),
  *   description = @Translation("Client Translator service."),
- *   ui = "Drupal\tmgmt_client\ClientTranslatorUi"
+ *   ui = "Drupal\tmgmt_client\ClientTranslatorUi",
+ *   language_cache = FALSE
  * )
  */
 class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryPluginInterface, ContinuousTranslatorInterface {
@@ -198,28 +199,11 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
    */
   public function getSupportedRemoteLanguages(TranslatorInterface $translator) {
     $available_languages = [];
+    $language_pairs = $this->getSupportedLanguagePairs($translator);
 
-    // Continue only if all necessary settings are available.
-    if (!$this->checkAvailable($translator)->getSuccess()) {
-      return $available_languages;
-    }
-
-    try {
-      $response = $this->doRequest($translator, 'GET', 'language-pairs');
-
-      if (!empty($response)) {
-        $response_data = Json::decode($response->getBody()->getContents());
-        foreach ($response_data['data'] as $lang_pair) {
-          $available_languages[$lang_pair['source_language']] = $lang_pair['source_language'];
-          $available_languages[$lang_pair['target_language']] = $lang_pair['target_language'];
-        }
-      }
-    }
-    catch (ClientException $e) {
-      $this->ConnectErrorCode = $e->getCode();
-    }
-    catch (ServerException $e) {
-      $this->ConnectErrorCode = $e->getCode();
+    foreach ($language_pairs as $language_pair) {
+      $available_languages[$language_pair['source_language']] = $language_pair['source_language'];
+      $available_languages[$language_pair['target_language']] = $language_pair['target_language'];
     }
 
     return $available_languages;
@@ -237,31 +221,64 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
 
   /**
    * Overrides TMGMTDefaultTranslatorPluginController::getSupportedLanguagePairs().
+   *
+   * Fetch the available language pairs from the remote server.
+   *
+   * @param TranslatorInterface $translator
+   *   The translator.
+   *
+   * @return array
+   *   The available language pairs.
    */
   public function getSupportedLanguagePairs(TranslatorInterface $translator) {
-    return parent::getSupportedLanguagePairs($translator);
-    // @todo: get the pairs from remote.
+    $language_pairs = [];
+
+    // Continue only if all necessary settings are available.
+    if (!$this->checkAvailable($translator)->getSuccess()) {
+      return $language_pairs;
+    }
+
+    try {
+      $response = $this->doRequest($translator, 'GET', 'language-pairs');
+
+      if (!empty($response)) {
+        $response_data = Json::decode($response->getBody()->getContents());
+        $language_pairs = $response_data['data'];
+      }
+    }
+    catch (ClientException $e) {
+      $this->ConnectErrorCode = $e->getCode();
+    }
+    catch (ServerException $e) {
+      $this->ConnectErrorCode = $e->getCode();
+    }
+
+    return $language_pairs;
   }
 
   /**
    * Overrides TMGMTDefaultTranslatorPluginController::getSupportedTargetLanguages().
+   *
+   * @param TranslatorInterface $translator
+   *   The translator.
+   * @param string $source_language
+   *   Find matches for this language.
+   *
+   * @return array
+   *   The available target languages.
    */
   public function getSupportedTargetLanguages(TranslatorInterface $translator, $source_language) {
 
+    $languages = [];
+    $language_pairs = $this->getSupportedLanguagePairs($translator);
 
-
-
-    $languages = $this->getSupportedRemoteLanguages($translator);
-
-    // There are no language pairs, any supported language can be translated
-    // into the others. If the source language is part of the languages,
-    // then return them all, just remove the source language.
-    if (array_key_exists($source_language, $languages)) {
-      unset($languages[$source_language]);
-      return $languages;
+    foreach ($language_pairs as $language_pair) {
+      if ($language_pair['source_language'] == $source_language) {
+        $languages[$language_pair['target_language']] = $language_pair['target_language'];
+      }
     }
 
-    return array();
+    return $languages;
   }
 
   /**
@@ -434,4 +451,16 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
     return $auth_string;
   }
 
+  /**
+   * Get Error Code porperty.
+   *
+   * @return string
+   *   Error Code.
+   */
+  public function getConnectErrorCode() {
+    return $this->ConnectErrorCode;
+  }
 }
+
+
+
