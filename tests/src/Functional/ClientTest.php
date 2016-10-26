@@ -20,7 +20,17 @@ class ClientTest extends BrowserTestBase    {
    *
    * @var array
    */
-  public static $modules = ['tmgmt','tmgmt_client', 'tmgmt_server','language'];
+  public static $modules = [
+    'tmgmt',
+    'tmgmt_content',
+    'tmgmt_client',
+    'tmgmt_server',
+    'tmgmt_local',
+    'language',
+    'content_translation',
+    'tmgmt_language_combination',
+    'content_translation',
+  ];
 
   public function setUp() {
     parent::setUp();
