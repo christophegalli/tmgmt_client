@@ -31,7 +31,7 @@ class TMGMTClientController extends ControllerBase {
     /* @var array $data */
     /** @var ClientTranslator $plugin */
 
-    // return '404';
+     return '404';
     // Get the remote item data.
     $plugin = $tmgmt_job_item->getTranslator()->getPlugin();
 
