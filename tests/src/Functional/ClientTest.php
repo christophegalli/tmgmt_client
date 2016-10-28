@@ -5,8 +5,7 @@ namespace Drupal\Core\Tests\tmgmt_client\Functional;
 
 use Drupal\language\Entity\ConfigurableLanguage;
 use Drupal\Tests\BrowserTestBase;
-use Drupal\tmgmt\Tests\EntityTestBase;
-use Drupal\tmgmt\Tests\TMGMTTestBase;
+use Drupal\tmgmt_server\Entity\TMGMTServerClient;
 
 
 /**
@@ -32,6 +31,11 @@ class ClientTest extends BrowserTestBase    {
     'content_translation',
   ];
 
+  /**
+   * @var TMGMTServerClient
+   */
+  public $remote_client;
+
   public function setUp() {
     parent::setUp();
 
@@ -39,15 +43,31 @@ class ClientTest extends BrowserTestBase    {
     $language = ConfigurableLanguage::createFromLangcode('de');
     $language->save();
 
+    // Create clint on the server side, to be targeted.
+    $this->remote_client = TMGMTServerClient::create([
+      'name' => 'test client',
+      'description' => 'used to test the client',
+      'url' => 'translator',
+    ]);
+    $this->remote_client->setKeys();
+    $this->remote_client->save();
+
 
   }
 
   public function testClientSetup() {
 
-    $account = $this->drupalCreateUser(['administer languages']);
-    $this->drupalLogin($account);
-
-    $this->drupalGet('admin/config/regional/language');
-    //$this->assertSession()->pageTextContains('German');
+    global  $base_url;
+    $user = $this->drupalCreateUser(['administer tmgmt']);
+    $this->drupalLogin($user);
+    $edit = [
+      'label' => 'Test Client Provider',
+      'description' => 'Used for Testing purposes',
+      'settings[remote_url]' => $base_url,
+      'settings[client_id]' => $this->remote_client->getClientId(),
+      'settings[client_secret]' => $this->remote_client->getClientSecret(),
+    ];
+    $this->drupalPostForm('http://ubuntudev/tmgmt/admin/tmgmt/translators/manage/client', $edit, 'Connect');
+    $this->assertSession()->pageTextContains('Successfully connected!');
   }
 }
