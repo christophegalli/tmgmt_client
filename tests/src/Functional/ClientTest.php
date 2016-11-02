@@ -20,15 +20,16 @@ class ClientTest extends BrowserTestBase    {
    * @var array
    */
   public static $modules = [
+    'config',
     'tmgmt',
     'tmgmt_content',
     'tmgmt_client',
+    'node',
     'tmgmt_server',
     'tmgmt_local',
     'language',
     'content_translation',
     'tmgmt_language_combination',
-    'content_translation',
   ];
 
   /**
@@ -52,14 +53,25 @@ class ClientTest extends BrowserTestBase    {
     $this->remote_client->setKeys();
     $this->remote_client->save();
 
-
   }
 
   public function testClientSetup() {
 
     global  $base_url;
-    $user = $this->drupalCreateUser(['administer tmgmt']);
+    $user = $this->drupalCreateUser([
+      'administer tmgmt',
+      'view published tmgmt server client entities',
+      'provide translation services',
+    ]);
+
+    // Add the skills necessary to the local translator.
+    $user->tmgmt_translation_skills[] = array(
+      'language_from' => 'en',
+      'language_to' => 'de',
+    );
+    $user->save();
     $this->drupalLogin($user);
+
     $edit = [
       'label' => 'Test Client Provider',
       'description' => 'Used for Testing purposes',
@@ -67,7 +79,11 @@ class ClientTest extends BrowserTestBase    {
       'settings[client_id]' => $this->remote_client->getClientId(),
       'settings[client_secret]' => $this->remote_client->getClientSecret(),
     ];
-    $this->drupalPostForm('http://ubuntudev/tmgmt/admin/tmgmt/translators/manage/client', $edit, 'Connect');
+    $this->drupalPostForm('admin/tmgmt/translators/manage/client', $edit, 'Connect');
     $this->assertSession()->pageTextContains('Successfully connected!');
+
+    $this->drupalPostForm('admin/tmgmt/translators/manage/client', $edit, 'Save');
+    $this->assertSession()->pageTextContains('Test Client Provider configuration has been updated.');
   }
+
 }
