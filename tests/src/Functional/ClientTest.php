@@ -3,8 +3,14 @@
 
 namespace Drupal\Core\Tests\tmgmt_client\Functional;
 
+use Drupal\field\Entity\FieldConfig;
+use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\language\Entity\ConfigurableLanguage;
+use Drupal\tmgmt\RemoteMappingInterface;
+use Drupal\node\Entity\Node;
 use Drupal\Tests\BrowserTestBase;
+use Drupal\tmgmt\Entity\Job;
+use Drupal\tmgmt\Entity\JobItem;
 use Drupal\tmgmt_server\Entity\TMGMTServerClient;
 
 
@@ -55,7 +61,7 @@ class ClientTest extends BrowserTestBase    {
 
   }
 
-  public function testClientSetup() {
+  public function testTranslation() {
 
     global  $base_url;
     $user = $this->drupalCreateUser([
@@ -72,6 +78,8 @@ class ClientTest extends BrowserTestBase    {
     $user->save();
     $this->drupalLogin($user);
 
+    \Drupal::configFactory()->getEditable('tmgmt_server.settings')
+      ->set('default_translator', 'local')->save();
     $edit = [
       'label' => 'Test Client Provider',
       'description' => 'Used for Testing purposes',
@@ -84,6 +92,90 @@ class ClientTest extends BrowserTestBase    {
 
     $this->drupalPostForm('admin/tmgmt/translators/manage/client', $edit, 'Save');
     $this->assertSession()->pageTextContains('Test Client Provider configuration has been updated.');
+
+    // Remove the default translator in tmgmt_server.
+    // The translation request will be done manually to avoid timing issues.
+    \Drupal::configFactory()->getEditable('tmgmt_server.settings')
+      ->set('default_translator', '')->save();
+
+    // Prepare node.
+    $node = $this->createTestNode();
+
+    // Create the job.
+    $job = Job::create([
+      'label' => 'Test Job One',
+      'uid' => 1,
+      'source_language' => 'en',
+      'target_language' => 'de',
+      'translator' => 'client',
+      'comment' => 'test comment',
+    ]);
+
+    $item = $job->addItem('content', 'node', $node->id());
+    $this->drupalPostForm('admin/tmgmt/jobs/' . $item->id(), array(), 'Submit to provider');
+
+    $this->assertSession()->pageTextContains('The translation job has been submitted.');
+
+    // Find the corresponding remote job via the mapping.
+    $remote_mapping = $job->getRemoteMappings();
+    $this->assertEquals(count($remote_mapping), 1);
+
+    $remote_map = array_shift($remote_mapping);
+    $remote_item_id = $remote_map->getRemoteIdentifier1();
+    $remote_item = JobItem::load($remote_item_id);
+    $remote_job = $remote_item->getJob();
+
+    $this->assertFalse($remote_job->hasTranslator());
+  }
+
+  /**
+   * Helper function to define and create node.
+   *
+   * @return Node
+   *   The created node.
+   */
+  protected function createTestNode() {
+    // Create a content type and make it translatable.
+    $this->drupalCreateContentType(array(
+      'type' => 'article',
+      'name' => 'Article',
+    ));
+    $content_translation_manager = \Drupal::service('content_translation.manager');
+    $content_translation_manager->setEnabled('node', 'article', TRUE);
+
+    // Create a field.
+    $field_storage = FieldStorageConfig::create(array(
+      'field_name' => 'field_test',
+      'entity_type' => 'node',
+      'type' => 'text',
+      'cardinality' => 1,
+      'translatable' => TRUE,
+    ));
+    $field_storage->save();
+
+    // Create an instance of the previously created field.
+    $field = FieldConfig::create(array(
+      'field_name' => 'field_test',
+      'entity_type' => 'node',
+      'bundle' => 'article',
+      'label' => 'Test field label',
+      'description' => 'One field for testing',
+      'widget' => array(
+        'type' => 'text_textfield',
+        'label' => 'Test field widget',
+      ),
+    ));
+    $field->save();
+
+    $node = Node::create([
+      'type' => 'article',
+      'title' => 'Test node title',
+      'body' => 'Test node body',
+      'field_test' => 'Text for test field',
+    ]);
+    $node->save();
+
+    return $node;
   }
 
 }
