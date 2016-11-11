@@ -6,6 +6,7 @@ namespace Drupal\Core\Tests\tmgmt_client\Functional;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\language\Entity\ConfigurableLanguage;
+use Drupal\tmgmt\Entity\Translator;
 use Drupal\tmgmt\RemoteMappingInterface;
 use Drupal\node\Entity\Node;
 use Drupal\Tests\BrowserTestBase;
@@ -33,6 +34,7 @@ class ClientTest extends BrowserTestBase    {
     'node',
     'tmgmt_server',
     'tmgmt_local',
+    'tmgmt_test',
     'language',
     'content_translation',
     'tmgmt_language_combination',
@@ -49,6 +51,7 @@ class ClientTest extends BrowserTestBase    {
     // Add second language 'german' to the site.
     $language = ConfigurableLanguage::createFromLangcode('de');
     $language->save();
+
 
     // Create clint on the server side, to be targeted.
     $this->remote_client = TMGMTServerClient::create([
@@ -79,13 +82,15 @@ class ClientTest extends BrowserTestBase    {
     $this->drupalLogin($user);
 
     \Drupal::configFactory()->getEditable('tmgmt_server.settings')
-      ->set('default_translator', 'local')->save();
+      ->set('default_translator', 'test_translator')->save();
     $edit = [
       'label' => 'Test Client Provider',
       'description' => 'Used for Testing purposes',
       'settings[remote_url]' => $base_url,
       'settings[client_id]' => $this->remote_client->getClientId(),
       'settings[client_secret]' => $this->remote_client->getClientSecret(),
+      'remote_languages_mappings[en]' => 'en',
+      'remote_languages_mappings[de]' => 'de-ch',
     ];
     $this->drupalPostForm('admin/tmgmt/translators/manage/client', $edit, 'Connect');
     $this->assertSession()->pageTextContains('Successfully connected!');
@@ -93,10 +98,12 @@ class ClientTest extends BrowserTestBase    {
     $this->drupalPostForm('admin/tmgmt/translators/manage/client', $edit, 'Save');
     $this->assertSession()->pageTextContains('Test Client Provider configuration has been updated.');
 
-    // Remove the default translator in tmgmt_server.
-    // The translation request will be done manually to avoid timing issues.
     \Drupal::configFactory()->getEditable('tmgmt_server.settings')
-      ->set('default_translator', '')->save();
+      ->set('default_translator', 'test_translator')->save();
+
+    $test_translator = Translator::load('test_translator');
+    $test_translator->setAutoAccept(TRUE);
+    $test_translator->save();
 
     // Prepare node.
     $node = $this->createTestNode();
@@ -112,21 +119,12 @@ class ClientTest extends BrowserTestBase    {
     ]);
 
     $item = $job->addItem('content', 'node', $node->id());
+
     $this->drupalPostForm('admin/tmgmt/jobs/' . $item->id(), array(), 'Submit to provider');
 
     $this->assertSession()->pageTextContains('The translation job has been submitted.');
 
-    // Find the corresponding remote job via the mapping.
-    $remote_mapping = $job->getRemoteMappings();
-    $this->assertEquals(count($remote_mapping), 1);
-
-    $remote_map = array_shift($remote_mapping);
-    $remote_item_id = $remote_map->getRemoteIdentifier1();
-    $remote_item = JobItem::load($remote_item_id);
-    $remote_job = $remote_item->getJob();
-
-    $this->assertFalse($remote_job->hasTranslator());
-  }
+;  }
 
   /**
    * Helper function to define and create node.
