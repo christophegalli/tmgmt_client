@@ -102,7 +102,7 @@ class ClientTest extends BrowserTestBase    {
       ->set('default_translator', 'test_translator')->save();
 
     $test_translator = Translator::load('test_translator');
-    $test_translator->setAutoAccept(TRUE);
+    $test_translator->setAutoAccept(FALSE);
     $test_translator->save();
 
     // Prepare node.
@@ -124,7 +124,21 @@ class ClientTest extends BrowserTestBase    {
 
     $this->assertSession()->pageTextContains('The translation job has been submitted.');
 
-;  }
+    // Find the corresponding remote job via the mapping.
+    $remote_mapping = $job->getRemoteMappings();
+    $this->assertEquals(count($remote_mapping), 1);
+
+    $remote_map = array_shift($remote_mapping);
+    $remote_item_id = $remote_map->getRemoteIdentifier1();
+    $remote_item = JobItem::load($remote_item_id);
+
+    $this->drupalGet('tmgmt-drupal-callback/1');
+
+    $remote_item->acceptTranslation();
+
+    $this->drupalGet('admin/tmgmt/jobs');
+
+  }
 
   /**
    * Helper function to define and create node.
