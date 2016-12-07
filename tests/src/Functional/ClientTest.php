@@ -132,12 +132,18 @@ class ClientTest extends BrowserTestBase    {
     $remote_item_id = $remote_map->getRemoteIdentifier1();
     $remote_item = JobItem::load($remote_item_id);
 
-    $this->drupalGet('tmgmt-drupal-callback/1');
+    // Manually, it works.
+    //$this->drupalGet('tmgmt-drupal-callback/1');
 
+
+    // Triggered programmatically, the callback fails. RequestSource.php, line 273.
     $remote_item->acceptTranslation();
 
-    $this->drupalGet('admin/tmgmt/jobs');
+    // Trial with the 'form' method, does not work.
+    // $review_url = 'admin/tmgmt/items/'. $remote_item_id;
+    // $this->drupalPostForm($review_url, array(), 'Save as completed');
 
+    $this->drupalGet('admin/tmgmt/jobs');
   }
 
   /**

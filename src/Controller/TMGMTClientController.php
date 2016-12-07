@@ -26,7 +26,7 @@ class TMGMTClientController extends ControllerBase {
    * @return Response
    *   Empty response with code 200.
    */
-  public function clientCallback(JobItem $tmgmt_job_item) {
+  public function clientCallback(Request $request, JobItem $tmgmt_job_item) {
     /* @var int $remote_source_id */
     /* @var array $data */
     /** @var ClientTranslator $plugin */
