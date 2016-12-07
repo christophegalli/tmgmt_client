@@ -52,7 +52,6 @@ class ClientTest extends BrowserTestBase    {
     $language = ConfigurableLanguage::createFromLangcode('de');
     $language->save();
 
-
     // Create clint on the server side, to be targeted.
     $this->remote_client = TMGMTServerClient::create([
       'name' => 'test client',
@@ -140,8 +139,8 @@ class ClientTest extends BrowserTestBase    {
     $remote_item->acceptTranslation();
 
     // Trial with the 'form' method, does not work.
-    // $review_url = 'admin/tmgmt/items/'. $remote_item_id;
-    // $this->drupalPostForm($review_url, array(), 'Save as completed');
+    $review_url = 'admin/tmgmt/items/'. $remote_item_id;
+    $this->drupalPostForm($review_url, array(), 'Save as completed');
 
     $this->drupalGet('admin/tmgmt/jobs');
   }

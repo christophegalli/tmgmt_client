@@ -5,6 +5,7 @@ namespace Drupal\tmgmt_client\Plugin\tmgmt\Translator;
 use Drupal\Component\Utility\Crypt;
 use Drupal\Core\Url;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
+use Drupal\Tests\XdebugRequestTrait;
 use Drupal\tmgmt\ContinuousTranslatorInterface;
 use Drupal\tmgmt\Entity\Job;
 use Drupal\tmgmt\Entity\JobItem;
@@ -17,11 +18,14 @@ use Drupal\tmgmt\TranslatorPluginBase;
 use Drupal\tmgmt\RemoteMappingInterface;
 use Drupal\tmgmt\Entity\RemoteMapping;
 use GuzzleHttp\ClientInterface;
+use GuzzleHttp\Cookie\CookieJar;
+use GuzzleHttp\Cookie\SetCookie;
 use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\ServerException;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use \Drupal\tmgmt\Translator\AvailableResult;
 use Drupal\Component\Serialization\Json;
+use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Client translator plugin.
@@ -35,7 +39,6 @@ use Drupal\Component\Serialization\Json;
  * )
  */
 class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryPluginInterface, ContinuousTranslatorInterface {
-
 
   /**
    * Available actions for Client translator.
@@ -335,9 +338,15 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
     $options['headers']['Authenticate'] = $this->createAuthString($translator);
 
     // Support for debug session, pass on the cookie.
-    if (isset($_COOKIE['XDEBUG_SESSION'])) {
-      $cookie = 'XDEBUG_SESSION=' . $_COOKIE['XDEBUG_SESSION'];
-      $options['headers']['Cookie'] = $cookie;
+    $request = \Drupal::request();
+    if ($cookies = $this->extractCookiesFromRequest($request)) {
+      $cookie_jar = new CookieJar();
+      foreach ($cookies as $cookie_name => $values) {
+        foreach ($values as $value) {
+          $cookie_jar->setCookie(new SetCookie(['Name' => $cookie_name, 'Value' => $value, 'Domain' => $request->getHost()]));
+        }
+      }
+      $options['cookies'] = $cookie_jar;
     }
 
     $response = $this->client->request($requestType, $url, $options);
@@ -460,6 +469,48 @@ class ClientTranslator extends TranslatorPluginBase implements ContainerFactoryP
   public function getConnectErrorCode() {
     return $this->ConnectErrorCode;
   }
+
+  /**
+   * Adds xdebug cookies, from request setup.
+   *
+   * In order to debug web tests you need to either set a cookie, have the
+   * Xdebug session in the URL or set an environment variable in case of CLI
+   * requests. If the developer listens to connection on the parent site, by
+   * default the cookie is not forwarded to the client side, so you cannot
+   * debug the code running on the child site. In order to make debuggers work
+   * this bit of information is forwarded. Make sure that the debugger listens
+   * to at least three external connections.
+   *
+   * @param \Symfony\Component\HttpFoundation\Request $request
+   *   The request.
+   *
+   * @return array
+   *   The extracted cookies.
+   *
+   * @see \Drupal\Tests\XdebugRequestTrait
+   */
+  protected function extractCookiesFromRequest(Request $request) {
+    $cookie_params = $request->cookies;
+    $cookies = [];
+    if ($cookie_params->has('XDEBUG_SESSION')) {
+      $cookies['XDEBUG_SESSION'][] = $cookie_params->get('XDEBUG_SESSION');
+    }
+    // For CLI requests, the information is stored in $_SERVER.
+    $server = $request->server;
+    if ($server->has('XDEBUG_CONFIG')) {
+      // $_SERVER['XDEBUG_CONFIG'] has the form "key1=value1 key2=value2 ...".
+      $pairs = explode(' ', $server->get('XDEBUG_CONFIG'));
+      foreach ($pairs as $pair) {
+        list($key, $value) = explode('=', $pair);
+        // Account for key-value pairs being separated by multiple spaces.
+        if (trim($key, ' ') == 'idekey') {
+          $cookies['XDEBUG_SESSION'][] = trim($value, ' ');
+        }
+      }
+    }
+    return $cookies;
+  }
+
 }
 
 
