@@ -4,4 +4,4 @@ tmgmt_client.callback:
     _controller: '\Drupal\tmgmt_client\Controller\TMGMTClientController::clientCallback'
     _title: 'Client Callback'
   requirements:
-    _permission: 'access content'
+    _access: 'TRUE'
