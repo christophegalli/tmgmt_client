@@ -7,12 +7,15 @@ use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\language\Entity\ConfigurableLanguage;
 use Drupal\tmgmt\Entity\Translator;
+use Drupal\tmgmt\JobInterface;
+use Drupal\tmgmt\JobItemInterface;
 use Drupal\tmgmt\RemoteMappingInterface;
 use Drupal\node\Entity\Node;
 use Drupal\Tests\BrowserTestBase;
 use Drupal\tmgmt\Entity\Job;
 use Drupal\tmgmt\Entity\JobItem;
 use Drupal\tmgmt_server\Entity\TMGMTServerClient;
+use Drupal\tmgmt_server\Entity\TMGMTServerRemoteSource;
 
 
 /**
@@ -117,8 +120,10 @@ class ClientTest extends BrowserTestBase    {
       'comment' => 'test comment',
     ]);
 
+    // Add the node to the job as item.
     $item = $job->addItem('content', 'node', $node->id());
 
+    // Request translation.
     $this->drupalPostForm('admin/tmgmt/jobs/' . $item->id(), array(), 'Submit to provider');
 
     $this->assertSession()->pageTextContains('The translation job has been submitted.');
@@ -127,22 +132,71 @@ class ClientTest extends BrowserTestBase    {
     $remote_mapping = $job->getRemoteMappings();
     $this->assertEquals(count($remote_mapping), 1);
 
+    // Find the remote_item via remote mapping.
     $remote_map = array_shift($remote_mapping);
     $remote_item_id = $remote_map->getRemoteIdentifier1();
     $remote_item = JobItem::load($remote_item_id);
 
-    // Manually, it works.
-    //$this->drupalGet('tmgmt-drupal-callback/1');
-
-
-    // Triggered programmatically, the callback fails. RequestSource.php, line 273.
+    // Complete the remote translation, the job should come back to the client.
     $remote_item->acceptTranslation();
 
-    // Trial with the 'form' method, does not work.
-    $review_url = 'admin/tmgmt/items/'. $remote_item_id;
-    $this->drupalPostForm($review_url, array(), 'Save as completed');
+    // Reload the JobItem from DB.
+    $item = JobItem::load($item->id());
 
-    $this->drupalGet('admin/tmgmt/jobs');
+    // Does it need review?
+    $this->assertEquals($item->getstate(), JobItemInterface::STATE_REVIEW);
+
+    // Complete the translation.
+    $this->drupalPostForm('admin/tmgmt/items/' . $item->id(), [], 'Save as completed');
+    $confirmation = 'The translation of ' . $node->getTitle() . ' to German is finished';
+    $this->assertSession()->pageTextContains($confirmation);
+
+    // @todo: Werte in den Feldern überprüfen, node Name der Übersetzung auch
+
+    // Test the pull functionality.
+
+    // Create the job.
+    $job = Job::create([
+      'label' => 'Test Job Two',
+      'uid' => 1,
+      'source_language' => 'en',
+      'target_language' => 'de',
+      'translator' => 'client',
+      'comment' => 'test comment',
+    ]);
+
+    // Add the node to the job as item. Set the callback to inexistent url.
+    $item = $job->addItem('content', 'node', $node->id());
+    // Request translation.
+    $this->drupalPostForm('admin/tmgmt/jobs/' . $item->id(), array(), 'Submit to provider');
+    $this->assertSession()->pageTextContains('The translation job has been submitted.');
+
+    // Find the corresponding remote job via the mapping.
+    $remote_mapping = $job->getRemoteMappings();
+    $this->assertEquals(count($remote_mapping), 1);
+
+    // Find the remote_item via remote mapping.
+    $remote_map = array_shift($remote_mapping);
+    $remote_item_id = $remote_map->getRemoteIdentifier1();
+    $remote_item = JobItem::load($remote_item_id);
+
+    // Change to callback to dummy.
+    $remote_source = TMGMTServerRemoteSource::load($remote_item->getItemId());
+    $remote_source->callback = 'http://dummy.ch';
+    $remote_source->save();
+    // Complete the remote translation, the job should come back to the client.
+    $remote_item->acceptTranslation();
+
+    // Make sure that the job item is not yet translated.
+    $item = JobItem::load($item->id());
+    $this->assertEquals($item->getState(), JobItemInterface::STATE_ACTIVE);
+
+    // Pull translation.
+    $this->drupalPostForm('admin/tmgmt/jobs/' . $job->id(), [], 'Pull translations from remote server');
+    $item = JobItem::load($item->id());
+    $this->assertEquals($item->getState(), JobItemInterface::STATE_REVIEW);
+
+    // Werte in den Feldern überprüfen.
   }
 
   /**
