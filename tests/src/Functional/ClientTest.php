@@ -117,14 +117,14 @@ class ClientTest extends BrowserTestBase    {
       'source_language' => 'en',
       'target_language' => 'de',
       'translator' => 'client',
-      'comment' => 'test comment',
     ]);
 
     // Add the node to the job as item.
     $item = $job->addItem('content', 'node', $node->id());
 
     // Request translation.
-    $this->drupalPostForm('admin/tmgmt/jobs/' . $item->id(), array(), 'Submit to provider');
+    $edit = ['settings[job_comment]' => 'test comment'];
+    $this->drupalPostForm('admin/tmgmt/jobs/' . $job->id(), $edit, 'Submit to provider');
 
     $this->assertSession()->pageTextContains('The translation job has been submitted.');
 
@@ -147,14 +147,16 @@ class ClientTest extends BrowserTestBase    {
     $this->assertEquals($item->getstate(), JobItemInterface::STATE_REVIEW);
 
     // Complete the translation.
+    $this->drupalGet('admin/tmgmt/items/' . $item->id());
+    $this->assertSession()->pageTextContains('de(de-ch): Test node title');
+    $this->assertSession()->pageTextContains('de(de-ch): Test node body');
+    $this->assertSession()->pageTextContains('de(de-ch): Text for test field');
+
     $this->drupalPostForm('admin/tmgmt/items/' . $item->id(), [], 'Save as completed');
-    $confirmation = 'The translation of ' . $node->getTitle() . ' to German is finished';
+    $confirmation = 'The translation for ' . $node->getTitle() . ' has been accepted as de(de-ch): ' . $node->getTitle();
     $this->assertSession()->pageTextContains($confirmation);
 
-    // @todo: Werte in den Feldern überprüfen, node Name der Übersetzung auch
-
     // Test the pull functionality.
-
     // Create the job.
     $job = Job::create([
       'label' => 'Test Job Two',
@@ -162,13 +164,13 @@ class ClientTest extends BrowserTestBase    {
       'source_language' => 'en',
       'target_language' => 'de',
       'translator' => 'client',
-      'comment' => 'test comment',
     ]);
 
     // Add the node to the job as item. Set the callback to inexistent url.
     $item = $job->addItem('content', 'node', $node->id());
     // Request translation.
-    $this->drupalPostForm('admin/tmgmt/jobs/' . $item->id(), array(), 'Submit to provider');
+    $edit = ['settings[job_comment]' => 'test comment'];
+    $this->drupalPostForm('admin/tmgmt/jobs/' . $job->id(), $edit, 'Submit to provider');
     $this->assertSession()->pageTextContains('The translation job has been submitted.');
 
     // Find the corresponding remote job via the mapping.
@@ -193,11 +195,19 @@ class ClientTest extends BrowserTestBase    {
 
     // Pull translation.
     $this->drupalPostForm('admin/tmgmt/jobs/' . $job->id(), [], 'Pull translations from remote server');
+    \Drupal::entityTypemanager()->getStorage('tmgmt_job_item')->resetCache([$item->id()]);
     $item = JobItem::load($item->id());
     $this->assertEquals($item->getState(), JobItemInterface::STATE_REVIEW);
 
-    // Werte in den Feldern überprüfen.
-  }
+    // Complete the translation and check the result.
+    $this->drupalGet('admin/tmgmt/items/' . $item->id());
+    $this->assertSession()->pageTextContains('de(de-ch): Test node title');
+    $this->assertSession()->pageTextContains('de(de-ch): Test node body');
+    $this->assertSession()->pageTextContains('de(de-ch): Text for test field');
+
+    $this->drupalPostForm('admin/tmgmt/items/' . $item->id(), [], 'Save as completed');
+    $confirmation = 'The translation for ' . $node->getTitle() . ' has been accepted as de(de-ch): ' . $node->getTitle();
+    $this->assertSession()->pageTextContains($confirmation);  }
 
   /**
    * Helper function to define and create node.
